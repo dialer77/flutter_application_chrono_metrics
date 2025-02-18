@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'reaction_test_page.dart';
+import 'time_generation_page.dart';
 
 class MainMenuPage extends StatefulWidget {
   const MainMenuPage({super.key, required this.title});
@@ -13,7 +14,7 @@ class MainMenuPage extends StatefulWidget {
 class _MainMenuPageState extends State<MainMenuPage> {
   final List<(String, Widget?)> menuItems = [
     ('동작 반응성 속도 측정', const ReactionTestPage()),
-    ('시간 생성', null),
+    ('시간 생성', const TimeGenerationPage()),
     ('시간 추정 - 시각 자극', null),
     ('시간 추정 - 청각 자극', null),
     ('반응 기록', null),
