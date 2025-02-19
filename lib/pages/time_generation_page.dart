@@ -14,6 +14,8 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   FocusNode focusNode = FocusNode();
   bool isPracticeMode = true;
   bool isStarted = false;
+  bool isShowingTarget = false; // 목표 시간 표시 상태
+  bool isMeasuring = false; // 시간 측정 중 상태
   DateTime? startTime;
   int? targetSeconds;
   int? elapsedMilliseconds;
@@ -45,19 +47,35 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   void startTest() {
     setState(() {
       isStarted = true;
-      startTime = DateTime.now();
-      elapsedMilliseconds = null;
+      isShowingTarget = true;
       if (isPracticeMode) {
         targetSeconds = random.nextInt(5) + 1; // 1~5초 랜덤
       }
     });
+
+    // 2초 후에 + 표시로 변경
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && isStarted) {
+        setState(() {
+          isShowingTarget = false;
+        });
+      }
+    });
+  }
+
+  void startMeasuring() {
+    setState(() {
+      isMeasuring = true;
+      startTime = DateTime.now();
+    });
   }
 
   void endTest() {
-    if (isStarted) {
+    if (isMeasuring) {
       final endTime = DateTime.now();
       setState(() {
         isStarted = false;
+        isMeasuring = false;
         elapsedMilliseconds = endTime.difference(startTime!).inMilliseconds;
         startTime = null;
       });
@@ -65,10 +83,12 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   }
 
   void onSpacePressed() {
-    if (isStarted) {
-      endTest();
-    } else {
+    if (!isStarted) {
       startTest();
+    } else if (!isShowingTarget && !isMeasuring) {
+      startMeasuring();
+    } else if (isMeasuring) {
+      endTest();
     }
   }
 
@@ -76,10 +96,28 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     if (!isStarted && elapsedMilliseconds != null) {
       return '경과 시간: ${elapsedMilliseconds}ms\n목표 시간: ${targetSeconds! * 1000}ms';
     } else if (isStarted) {
-      return isPracticeMode ? '$targetSeconds초' : '+';
+      if (isShowingTarget) {
+        return isPracticeMode ? '$targetSeconds초' : '+';
+      } else {
+        return isMeasuring ? '●' : '+'; // 측정 중일 때는 검정 원, 아니면 +
+      }
     } else {
       return isPracticeMode ? '연습 모드' : '본실험 모드';
     }
+  }
+
+  TextStyle getDisplayStyle() {
+    if (isStarted && !isShowingTarget && isMeasuring) {
+      return const TextStyle(
+        fontSize: 48,
+        fontWeight: FontWeight.bold,
+        color: Colors.black, // 검정 원일 때는 검정색
+      );
+    }
+    return const TextStyle(
+      fontSize: 48,
+      fontWeight: FontWeight.bold,
+    );
   }
 
   @override
@@ -160,10 +198,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                                     children: [
                                       Text(
                                         getDisplayText(),
-                                        style: const TextStyle(
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: getDisplayStyle(), // 스타일 적용
                                         textAlign: TextAlign.center,
                                       ),
                                       if (elapsedMilliseconds != null) ...[
