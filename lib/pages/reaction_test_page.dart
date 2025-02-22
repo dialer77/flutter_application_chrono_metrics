@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -22,7 +22,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   final Random random = Random();
   FocusNode focusNode = FocusNode();
   final int maxRounds = 5;
-  final AudioPlayer audioPlayer = AudioPlayer();
+  late AudioPlayer player;
 
   @override
   void initState() {
@@ -34,14 +34,16 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   }
 
   Future<void> _initAudio() async {
-    await audioPlayer.setSource(AssetSource('beep.mp3')); // 실제 파일 이름으로 수정해주세요
-    await audioPlayer.setVolume(1.0);
+    player = AudioPlayer();
+    final audioSource = AudioSource.asset('assets/beep.mp3');
+    await player.setAudioSource(audioSource);
+    await player.setVolume(1.0);
   }
 
   @override
   void dispose() {
+    player.dispose();
     focusNode.dispose();
-    audioPlayer.dispose();
     super.dispose();
   }
 
@@ -59,15 +61,28 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
       isTesting = false;
     });
 
-    Future.delayed(Duration(milliseconds: 1500 + random.nextInt(3500)), () {
-      if (mounted && isReady) {
-        setState(() {
-          isReady = false;
-          isTesting = true;
-          startTime = DateTime.now();
-        });
-        if (isAudioMode) {
-          audioPlayer.resume(); // 비프음 재생
+    Future.delayed(Duration(milliseconds: 1500 + random.nextInt(3500)), () async {
+      if (!mounted || !isReady) return;
+
+      setState(() {
+        isReady = false;
+        isTesting = true;
+        startTime = DateTime.now();
+      });
+
+      if (isAudioMode) {
+        try {
+          await player.seek(Duration.zero);
+          await player.play();
+        } catch (e) {
+          print('Audio playback error: $e');
+          if (mounted) {
+            setState(() {
+              isWaiting = true;
+              isReady = false;
+              isTesting = false;
+            });
+          }
         }
       }
     });
@@ -135,7 +150,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isAudioMode ? '청각 반응 속도 테스트 (M)' : '시각 반응 속도 테스트 (M)'),
+        title: const Text('동작 반응성 속도 측정'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
@@ -156,85 +171,154 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
             }
           }
         },
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  color: isAudioMode
-                      ? Colors.blue
-                      : isFinished
-                          ? Colors.purple
-                          : isWaiting
-                              ? Colors.blue
-                              : isReady
-                                  ? Colors.red
-                                  : Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        isFinished
-                            ? '테스트 완료!\n스페이스바를 눌러 재시작'
-                            : isAudioMode
-                                ? isWaiting
-                                    ? '스페이스바를 눌러 테스트 시작'
-                                    : '비프음을 기다리세요...\n비프음이 들리면 스페이스바를 누르세요!'
-                                : isWaiting
-                                    ? '스페이스바를 눌러 시작\n초록색으로 변하면 스페이스바를 누르세요'
-                                    : isReady
-                                        ? '기다리세요...'
-                                        : '스페이스바를 누르세요!',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: constraints.maxWidth * 0.05,
+                right: constraints.maxWidth * 0.05,
+                bottom: constraints.maxHeight * 0.05,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: constraints.maxHeight * 0.1,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: toggleMode,
+                          icon: Icon(
+                            isAudioMode ? Icons.volume_up : Icons.visibility,
+                            size: 50,
+                            color: isAudioMode ? Colors.blue : Colors.purple,
+                          ),
+                          tooltip: '${isAudioMode ? "청각" : "시각"} 모드로 전환 (M키)',
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
+                        SizedBox(
+                          width: constraints.maxWidth * 0.01,
+                        ),
+                        Text(
+                          isAudioMode ? '청각 모드' : '시각 모드',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          height: constraints.maxHeight * 0.6,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isAudioMode ? Colors.blue : Colors.purple,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: isTesting && isAudioMode == false
+                                ? Icon(
+                                    Icons.star,
+                                    size: constraints.maxHeight * 0.3,
+                                    color: Colors.red,
+                                  )
+                                : testGuideText(24, Colors.blue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: constraints.maxHeight * 0.05,
+                    child: Center(
+                      child: Text(
                         '${reactionTimes.length}/$maxRounds 라운드',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: isAudioMode ? Colors.blue : Colors.purple,
                           fontSize: 18,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                getAverageTime(),
-                style: const TextStyle(fontSize: 20),
-              ),
-              if (reactionTimes.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  '마지막 기록: ${reactionTimes.last}ms',
-                  style: const TextStyle(fontSize: 20),
-                ),
-                const SizedBox(height: 20),
-                ...reactionTimes.asMap().entries.map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          '${entry.key + 1}번째 시도: ${entry.value}ms',
-                          style: const TextStyle(fontSize: 16),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isAudioMode ? Colors.blue : Colors.purple,
+                          width: 2,
+                        ),
+                      ),
+                      child: const SingleChildScrollView(
+                        child: Row(
+                          children: [
+                            Text('test'),
+                          ],
                         ),
                       ),
                     ),
-              ],
-            ],
-          ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Text testGuideText(double fontSize, Color color) {
+    TextStyle textStyle = TextStyle(
+      color: color,
+      fontSize: fontSize,
+      fontWeight: FontWeight.bold,
+    );
+
+    if (isFinished) {
+      return Text('테스트 완료!\n스페이스바를 눌러 재시작', textAlign: TextAlign.center, style: textStyle);
+    }
+
+    if (isAudioMode) {
+      if (isWaiting) {
+        return Text('비프음을 기다리세요...\n비프음이 들리면 스페이스바를 누르세요!', textAlign: TextAlign.center, style: textStyle);
+      } else {
+        return Text('비프음이 들리면 스페이스바를 누르세요!', textAlign: TextAlign.center, style: textStyle);
+      }
+    }
+
+    if (isWaiting) {
+      return Text('스페이스바를 눌러 테스트 시작', textAlign: TextAlign.center, style: textStyle);
+    } else if (isReady) {
+      return Text('준비되었습니다!\n스페이스바를 눌러 테스트 시작', textAlign: TextAlign.center, style: textStyle);
+    } else if (isTesting) {
+      return Text('별이 나오면 스페이스바를 누르세요!', textAlign: TextAlign.center, style: textStyle);
+    }
+
+    return Text(
+      isFinished
+          ? '테스트 완료!\n스페이스바를 눌러 재시작'
+          : isAudioMode
+              ? isWaiting
+                  ? '스페이스바를 눌러 테스트 시작'
+                  : '비프음을 기다리세요...\n비프음이 들리면 스페이스바를 누르세요!'
+              : isWaiting
+                  ? '스페이스바를 눌러 시작\n별이 나오면 스페이스바를 누르세요'
+                  : isReady
+                      ? ''
+                      : '스페이스바를 누르세요!',
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Colors.blue,
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
       ),
     );
   }

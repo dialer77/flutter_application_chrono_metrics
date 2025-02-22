@@ -8,8 +8,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
-    WindowManager.instance.setMinimumSize(const Size(1920, 1080));
-    WindowManager.instance.setSize(const Size(1920, 1080));
+    WindowManager.instance.setMinimumSize(const Size(1280, 720));
+    WindowManager.instance.setSize(const Size(1280, 720));
     WindowManager.instance.setTitle('Chrono Metrics');
   }
   runApp(const MyApp());
