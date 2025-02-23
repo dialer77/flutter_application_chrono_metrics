@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'pages/main_menu_page.dart';
+import 'package:provider/provider.dart';
+import 'providers/user_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,7 +14,16 @@ void main() async {
     WindowManager.instance.setSize(const Size(1280, 720));
     WindowManager.instance.setTitle('Chrono Metrics');
   }
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => UserStateProvider(),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

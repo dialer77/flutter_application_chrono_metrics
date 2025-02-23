@@ -37,6 +37,7 @@ dependencies:
   window_manager: ^0.4.3
   just_audio: ^0.9.36
   just_audio_windows: ^0.2.0 # Windows 지원을 위한 추가 패키지
+  provider: ^6.1.2
 
 dev_dependencies:
   flutter_test:
