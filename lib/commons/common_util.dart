@@ -20,6 +20,23 @@ class CommonUtil {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
+        void handleSubmit() {
+          if (nameController.text.isEmpty || userNumberController.text.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('모든 정보를 입력해주세요.')),
+            );
+            return;
+          }
+
+          final userInfo = UserInfomation(
+            name: nameController.text,
+            userNumber: userNumberController.text,
+          );
+
+          Provider.of<UserStateProvider>(context, listen: false).setUserInfo(userInfo);
+          Navigator.of(context).pop();
+        }
+
         return AlertDialog(
           title: const Text('사용자 정보 입력'),
           content: Column(
@@ -31,6 +48,7 @@ class CommonUtil {
                   labelText: '이름',
                   hintText: '이름을 입력하세요',
                 ),
+                onSubmitted: (_) => handleSubmit(),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -40,28 +58,13 @@ class CommonUtil {
                   hintText: '학번을 입력하세요',
                 ),
                 keyboardType: TextInputType.number,
+                onSubmitted: (_) => handleSubmit(),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                if (nameController.text.isEmpty || userNumberController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('모든 정보를 입력해주세요.')),
-                  );
-                  return;
-                }
-
-                final userInfo = UserInfomation(
-                  name: nameController.text,
-                  userNumber: userNumberController.text,
-                );
-
-                Provider.of<UserStateProvider>(context, listen: false).setUserInfo(userInfo);
-
-                Navigator.of(context).pop();
-              },
+              onPressed: handleSubmit,
               child: const Text('확인'),
             ),
           ],

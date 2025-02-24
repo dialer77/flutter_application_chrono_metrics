@@ -10,6 +10,8 @@ import 'package:just_audio/just_audio.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'dart:io';
 
 class ReactionTestPage extends StatefulWidget {
   const ReactionTestPage({super.key});
@@ -33,22 +35,28 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
 
   late TestResultReaction testResultReaction;
 
+  List<String> testResultList = [];
+
+  // 클래스 상단에 컨트롤러 선언
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      CommonUtil.showUserInfoDialog(
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
         userNumberController: _userNumberController,
       );
       FocusScope.of(context).requestFocus(focusNode);
+      testResultReaction = TestResultReaction(
+        userInfo: Provider.of<UserStateProvider>(context, listen: false).getUserInfo!,
+        startTime: DateTime.now(),
+      );
+      testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultListReaction(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
     });
     _initAudio();
-    testResultReaction = TestResultReaction(
-      userInfo: Provider.of<UserStateProvider>(context, listen: false).getUserInfo!,
-      startTime: DateTime.now(),
-    );
   }
 
   Future<void> _initAudio() async {
@@ -107,6 +115,10 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     if (testState == TestState.finished) {
       if (isAudioMode) {
         resetTest();
+        testResultReaction = TestResultReaction(
+          userInfo: Provider.of<UserStateProvider>(context, listen: false).getUserInfo!,
+          startTime: DateTime.now(),
+        );
         isAudioMode = false;
       } else {
         resetTest();
@@ -128,32 +140,35 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
       final endTime = DateTime.now();
       final reactionTime = endTime.difference(startTime!).inMilliseconds;
       setState(() {
-        Provider.of<UserStateProvider>(context, listen: false).getTestResultReaction?.addAuditoryTestData(TestDataReaction(
-              targetMilliseconds: targetMilliseconds,
-              resultMilliseconds: reactionTime,
-            ));
+        if (isAudioMode) {
+          testResultReaction.addAuditoryTestData(TestDataReaction(
+            targetMilliseconds: targetMilliseconds,
+            resultMilliseconds: reactionTime,
+          ));
+        } else {
+          testResultReaction.addVisualTestData(TestDataReaction(
+            targetMilliseconds: targetMilliseconds,
+            resultMilliseconds: reactionTime,
+          ));
+        }
         testState = TestState.idle;
       });
 
       currentRound++;
       if (currentRound >= maxRounds) {
-        Provider.of<UserStateProvider>(context, listen: false).saveTestResultReaction(
-          studentId: _userNumberController.text,
-          name: _nameController.text,
-        );
+        if (isAudioMode) {
+          Provider.of<UserStateProvider>(context, listen: false).saveTestResultReaction(
+            studentId: _userNumberController.text,
+            name: _nameController.text,
+            testResultReaction: testResultReaction,
+          );
+          testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultListReaction(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
+        }
         setState(() {
           testState = TestState.finished;
         });
       }
     }
-  }
-
-  String getAverageTime() {
-    final testResult = Provider.of<UserStateProvider>(context, listen: false).getTestResultReaction;
-
-    if (testResult == null) return '아직 기록이 없습니다';
-    final avg = testResult.auditoryAverageTime();
-    return '평균 반응 속도: ${avg.toStringAsFixed(1)}ms';
   }
 
   @override
@@ -317,13 +332,13 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
 
   Drawer getReactionRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    String path = '${Directory.current.path}/Data/Reaction/${userInfo?.userNumber}_${userInfo?.name}';
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.6,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return ListView(
-            padding: EdgeInsets.zero,
+          return Column(
             children: [
               Container(
                 height: constraints.maxHeight * 0.1,
@@ -349,18 +364,91 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
                     Row(
                       children: [
                         Text('이름: ${userInfo?.name ?? "미입력"}'),
+                        const SizedBox(width: 10),
                         Text('학번: ${userInfo?.userNumber ?? "미입력"}'),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.folder_open),
+                          tooltip: '저장 폴더 열기',
+                          onPressed: () async {
+                            if (Platform.isWindows) {
+                              path = path.replaceAll('/', '\\');
+                              Process.run('explorer', [path]);
+                            } else if (Platform.isMacOS) {
+                              Process.run('open', [path]);
+                            } else if (Platform.isLinux) {
+                              Process.run('xdg-open', [path]);
+                            }
+                          },
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
               const Divider(),
-              ListTile(
-                title: Text(getAverageTime()),
+
+              // 테스트 결과 목록
+              Expanded(
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  controller: _scrollController, // 스크롤바에 컨트롤러 연결
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        // 스크롤 컨트롤러를 통해 스크롤 위치 업데이트
+                        _scrollController.jumpTo(
+                          (_scrollController.offset - details.delta.dy).clamp(
+                            0.0,
+                            _scrollController.position.maxScrollExtent,
+                          ),
+                        );
+                      },
+                      child: SingleChildScrollView(
+                        controller: _scrollController, // SingleChildScrollView에 컨트롤러 연결
+                        physics: const ClampingScrollPhysics(),
+                        child: Column(
+                          children: testResultList.map((result) {
+                            final resultSplit = result.split('_');
+                            final String dateStr = resultSplit[1];
+                            final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
+                                '${dateStr.substring(4, 6)}-' // month
+                                '${dateStr.substring(6, 8)} ' // day
+                                '${dateStr.substring(8, 10)}:' // hour
+                                '${dateStr.substring(10, 12)}:' // minute
+                                '${dateStr.substring(12, 14)}' // second
+                                );
+
+                            final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
+                            return ExpansionTile(
+                              title: Text(formattedDate),
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: (() {
+                                      final testResultReaction = Provider.of<UserStateProvider>(context, listen: false).loadTestResultReaction('$path/$result', userInfo!);
+
+                                      return [
+                                        const Text('시각 모드 테스트 결과'),
+                                        ...testResultReaction.visualTestData.map((data) => Text('${data.targetMilliseconds}ms: ${data.resultMilliseconds}ms')),
+                                        const Text('청각 모드 테스트 결과'),
+                                        ...testResultReaction.auditoryTestData.map((data) => Text('${data.targetMilliseconds}ms: ${data.resultMilliseconds}ms')),
+                                      ];
+                                    })(),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              const Divider(),
-              // 각 라운드별 기록 표시
             ],
           );
         },

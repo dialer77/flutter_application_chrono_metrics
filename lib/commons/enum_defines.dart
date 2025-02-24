@@ -1,4 +1,4 @@
-enum TestType {
+enum ReactionTestType {
   visual,
   auditory,
 }
@@ -8,4 +8,9 @@ enum TestState {
   ready,
   testing,
   finished,
+}
+
+enum AppTestType {
+  reaction,
+  timegeneration,
 }
