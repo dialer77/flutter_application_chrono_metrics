@@ -3,23 +3,18 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_chrono_metrics/commons/enum_defines.dart';
-import 'package:flutter_application_chrono_metrics/datas/testdata_reaction.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_reaction/testdata_reaction.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testdata_time_generation.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testresult_time_generation.dart';
 import '../datas/user_infomation.dart';
-import '../datas/testresult_reaction.dart';
+import '../datas/data_reaction/testresult_reaction.dart';
 import 'package:intl/intl.dart';
 
 class UserStateProvider extends ChangeNotifier {
-  List<int> reactionTimes = [];
   UserInfomation? userInfo; // nullable로 선언
 
   // userInfo getter
   UserInfomation? get getUserInfo => userInfo;
-
-  // 반응 시간 기록 추가
-  void addReactionTime(int reactionTime) {
-    reactionTimes.add(reactionTime);
-    notifyListeners();
-  }
 
   // 유저 정보 설정
   void setUserInfo(UserInfomation info) {
@@ -146,6 +141,115 @@ class UserStateProvider extends ChangeNotifier {
         count++;
       }
 
+      // UTF-8로 인코딩하여 파일 저장
+      await file.writeAsString(sb.toString(), encoding: utf8);
+    } catch (e) {
+      // 에러를 상위로 전파
+    }
+  }
+
+  TestResultTimeGeneration loadTestResultTimeGeneration(String filePath, UserInfomation userInfo, bool isPracticeMode) {
+    // path 의 파일 명칭 추출
+
+    if (isPracticeMode) {
+      var practiceResultTimeGeneration = TestResultTimeGeneration(
+        userInfo: userInfo,
+      );
+
+      // 파일이 없으면 그냥 반환
+      if (!File(filePath).existsSync()) {
+        return practiceResultTimeGeneration;
+      }
+
+      // filePath 에서 파일 읽기
+      String content = File(filePath).readAsStringSync();
+      List<String> lines = content.split('\n');
+      lines.removeAt(0);
+
+      final DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
+      for (var line in lines) {
+        if (line.isEmpty || line == "") {
+          continue;
+        }
+        final contentSplit = line.split(',');
+        practiceResultTimeGeneration.addTestData(TestDataTimeGeneration(
+          targetTime: int.parse(contentSplit[1]),
+          elapsedTime: int.parse(contentSplit[2]),
+          testTime: formatter.parse(contentSplit[3]),
+        ));
+      }
+
+      return practiceResultTimeGeneration;
+    } else {
+      String fileName = filePath.split('/').last;
+
+      final resultSplit = fileName.split('_');
+      final String dateStr = resultSplit[1];
+      final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
+          '${dateStr.substring(4, 6)}-' // month
+          '${dateStr.substring(6, 8)} ' // day
+          '${dateStr.substring(8, 10)}:' // hour
+          '${dateStr.substring(10, 12)}:' // minute
+          '${dateStr.substring(12, 14)}' // second
+          );
+
+      TestResultTimeGeneration testResultTimeGeneration = TestResultTimeGeneration(
+        userInfo: userInfo,
+      );
+      return testResultTimeGeneration;
+    }
+  }
+
+  void saveTestResultTimeGeneration({
+    required String studentId,
+    required String name,
+    required TestResultTimeGeneration testResultTimeGeneration,
+    required bool isPracticeMode,
+  }) async {
+    try {
+      // 기본 경로 설정
+      String basePath = '${Directory.current.path}/Data/TimeGeneration';
+
+      // Data/Reaction 폴더가 없으면 생성
+      Directory baseDir = Directory(basePath);
+      if (!await baseDir.exists()) {
+        await baseDir.create(recursive: true);
+      }
+
+      // 학번_이름 형식의 폴더 경로 생성
+      String userFolderPath = '$basePath/${studentId}_$name';
+      Directory userDir = Directory(userFolderPath);
+
+      // 사용자 폴더가 없으면 생성
+      if (!await userDir.exists()) {
+        await userDir.create();
+      }
+
+      late File file;
+      StringBuffer sb = StringBuffer();
+      // UTF-8 BOM 추가
+      sb.write('\uFEFF');
+      if (isPracticeMode) {
+        String fileName = 'practice_result.csv';
+        file = File('$userFolderPath/$fileName');
+
+        sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms), 테스트시간');
+        int count = 1;
+        for (var data in testResultTimeGeneration.testDataList) {
+          sb.writeln('$count,${data.targetTime},${data.elapsedTime},${DateFormat('yyyy-MM-dd HH:mm:ss').format(data.testTime)}');
+          count++;
+        }
+      } else {
+        String timestamp = DateFormat('yyyyMMddHHmmss').format(testResultTimeGeneration.testTime);
+        file = File('$userFolderPath/result_$timestamp.csv');
+
+        sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
+        int count = 1;
+        for (var data in testResultTimeGeneration.testDataList) {
+          sb.writeln('$count,${data.targetTime},${data.elapsedTime}');
+          count++;
+        }
+      }
       // UTF-8로 인코딩하여 파일 저장
       await file.writeAsString(sb.toString(), encoding: utf8);
     } catch (e) {

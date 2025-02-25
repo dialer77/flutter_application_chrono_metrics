@@ -2,11 +2,15 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testdata_time_generation.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testresult_time_generation.dart';
 import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_application_chrono_metrics/commons/widgets/record_drawer.dart';
 
 class TimeGenerationPage extends StatefulWidget {
   const TimeGenerationPage({super.key});
@@ -16,23 +20,39 @@ class TimeGenerationPage extends StatefulWidget {
 }
 
 class _TimeGenerationPageState extends State<TimeGenerationPage> {
+  final Random random = Random();
   FocusNode focusNode = FocusNode();
-  int currentRound = 0;
-  final int maxRounds = 1;
+
   bool isPracticeMode = true;
+
   bool isStarted = false;
   bool isShowingTarget = false; // 목표 시간 표시 상태
   bool isMeasuring = false; // 시간 측정 중 상태
   DateTime? startTime;
-  int? targetSeconds;
+
+  int targetSeconds = 0;
   int? elapsedMilliseconds;
-  final Random random = Random();
+  final List<int> taskTimeList = [3, 5, 7, 9, 12];
+  int taskCount = 0;
+  final maxTaskCount = 5;
+
+  int currentRound = 0;
+  final int maxRounds = 4;
+
+  late TestResultTimeGeneration testResultTimeGeneration;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusScope.of(context).requestFocus(focusNode);
+
+      final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+      testResultTimeGeneration = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
+        '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}/practice_result.csv',
+        userInfo!,
+        true,
+      );
     });
   }
 
@@ -57,6 +77,11 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
       isShowingTarget = true;
       if (isPracticeMode) {
         targetSeconds = random.nextInt(5) + 1; // 1~5초 랜덤
+      } else {
+        if (taskCount >= maxTaskCount) {
+          taskCount = 0;
+        }
+        targetSeconds = taskTimeList[taskCount];
       }
     });
 
@@ -80,11 +105,33 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   void endTest() {
     if (isMeasuring) {
       final endTime = DateTime.now();
+      elapsedMilliseconds = endTime.difference(startTime!).inMilliseconds;
+      if (isPracticeMode) {
+        testResultTimeGeneration.addTestData(TestDataTimeGeneration(
+          targetTime: targetSeconds * 1000,
+          elapsedTime: elapsedMilliseconds ?? 0,
+          testTime: endTime,
+        ));
+
+        final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+        Provider.of<UserStateProvider>(context, listen: false).saveTestResultTimeGeneration(
+          studentId: userInfo?.userNumber ?? '',
+          name: userInfo?.name ?? '',
+          testResultTimeGeneration: testResultTimeGeneration,
+          isPracticeMode: true,
+        );
+      }
       setState(() {
         isStarted = false;
         isMeasuring = false;
-        elapsedMilliseconds = endTime.difference(startTime!).inMilliseconds;
+
         startTime = null;
+        if (isPracticeMode == false) {
+          taskCount++;
+          if (taskCount >= maxTaskCount) {
+            currentRound++;
+          }
+        }
       });
     }
   }
@@ -100,11 +147,11 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   }
 
   String getDisplayText() {
-    if (!isStarted && elapsedMilliseconds != null) {
-      return '경과 시간: ${elapsedMilliseconds}ms\n목표 시간: ${targetSeconds! * 1000}ms';
+    if (!isStarted) {
+      return '경과 시간: ${elapsedMilliseconds}ms\n목표 시간: ${targetSeconds * 1000}ms';
     } else if (isStarted) {
       if (isShowingTarget) {
-        return isPracticeMode ? '$targetSeconds초' : '+';
+        return '$targetSeconds초';
       } else {
         return isMeasuring ? '●' : '+'; // 측정 중일 때는 검정 원, 아니면 +
       }
@@ -212,12 +259,22 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                                           ? Column(
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               children: [
-                                                Text(
-                                                  getDisplayText(),
-                                                  style: getDisplayStyle(), // 스타일 적용
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                                if (elapsedMilliseconds != null) ...[
+                                                (() {
+                                                  if (isShowingTarget || !isStarted) {
+                                                    return Text(
+                                                      getDisplayText(),
+                                                      style: getDisplayStyle(), // 스타일 적용
+                                                      textAlign: TextAlign.center,
+                                                    );
+                                                  } else {
+                                                    return Icon(
+                                                      isMeasuring ? Icons.circle : Icons.add,
+                                                      size: constraints.maxHeight * 0.4,
+                                                      color: Colors.black,
+                                                    );
+                                                  }
+                                                }()),
+                                                if (isStarted == false) ...[
                                                   const SizedBox(height: 20),
                                                   const Text(
                                                     '스페이스바를 눌러 다시 시작',
@@ -270,12 +327,25 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                         child: Visibility(
                           visible: isPracticeMode == false,
                           child: Center(
-                            child: Text(
-                              '$currentRound/$maxRounds 라운드',
-                              style: TextStyle(
-                                color: isPracticeMode ? Colors.blue : Colors.purple,
-                                fontSize: 18,
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${taskCount + 1}/$maxTaskCount 과제',
+                                  style: TextStyle(
+                                    color: isPracticeMode ? Colors.blue : Colors.purple,
+                                    fontSize: constraints.maxHeight * 0.03,
+                                  ),
+                                ),
+                                SizedBox(width: constraints.maxWidth * 0.05),
+                                Text(
+                                  '$currentRound/$maxRounds 라운드',
+                                  style: TextStyle(
+                                    color: isPracticeMode ? Colors.blue : Colors.purple,
+                                    fontSize: constraints.maxHeight * 0.03,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -316,94 +386,46 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     );
   }
 
-  final ScrollController _scrollController = ScrollController();
-  Drawer getRecordDrawer() {
+  RecordDrawer getRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/Reaction/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}';
+    return RecordDrawer(
+      path: path,
+      record: isPracticeMode ? practiceResult() : Container(),
+      title: isPracticeMode ? '연습 결과' : '본실험 결과',
+    );
+  }
 
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.6,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Column(
-            children: [
-              Container(
-                height: constraints.maxHeight * 0.1,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.inversePrimary,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '반응 속도 기록',
-                  style: TextStyle(
-                    fontSize: constraints.maxHeight * 0.03,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+  final ScrollController _scrollController = ScrollController();
+  Widget practiceResult() {
+    return Scrollbar(
+      thumbVisibility: true,
+      controller: _scrollController, // 스크롤바에 컨트롤러 연결
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: GestureDetector(
+          onPanUpdate: (details) {
+            // 스크롤 컨트롤러를 통해 스크롤 위치 업데이트
+            _scrollController.jumpTo(
+              (_scrollController.offset - details.delta.dy).clamp(
+                0.0,
+                _scrollController.position.maxScrollExtent,
               ),
-              // 유저 정보 섹션 추가
-              Container(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text('이름: ${userInfo?.name ?? "미입력"}'),
-                        const SizedBox(width: 10),
-                        Text('학번: ${userInfo?.userNumber ?? "미입력"}'),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.folder_open),
-                          tooltip: '저장 폴더 열기',
-                          onPressed: () async {
-                            if (Platform.isWindows) {
-                              path = path.replaceAll('/', '\\');
-                              Process.run('explorer', [path]);
-                            } else if (Platform.isMacOS) {
-                              Process.run('open', [path]);
-                            } else if (Platform.isLinux) {
-                              Process.run('xdg-open', [path]);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(),
+            );
+          },
+          child: SingleChildScrollView(
+            controller: _scrollController, // SingleChildScrollView에 컨트롤러 연결
 
-              // 테스트 결과 목록
-              Expanded(
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  controller: _scrollController, // 스크롤바에 컨트롤러 연결
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        // 스크롤 컨트롤러를 통해 스크롤 위치 업데이트
-                        _scrollController.jumpTo(
-                          (_scrollController.offset - details.delta.dy).clamp(
-                            0.0,
-                            _scrollController.position.maxScrollExtent,
-                          ),
-                        );
-                      },
-                      child: SingleChildScrollView(
-                        controller: _scrollController, // SingleChildScrollView에 컨트롤러 연결
-                        physics: const ClampingScrollPhysics(),
-                        child: const Column(),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+            child: Column(
+              children: testResultTimeGeneration.testDataList.map((result) {
+                StringBuffer sb = StringBuffer();
+                sb.writeln('${result.testTime} 생성시간 : ${result.targetTime}ms, 사용자추정시간 : ${result.elapsedTime}ms');
+
+                return Text(sb.toString());
+              }).toList(),
+            ),
+          ),
+        ),
       ),
     );
   }

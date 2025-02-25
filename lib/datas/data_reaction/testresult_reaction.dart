@@ -1,5 +1,5 @@
 import 'package:flutter_application_chrono_metrics/datas/user_infomation.dart';
-import 'package:flutter_application_chrono_metrics/datas/testdata_reaction.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_reaction/testdata_reaction.dart';
 
 class TestResultReaction {
   UserInfomation userInfo;

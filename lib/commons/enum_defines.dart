@@ -14,3 +14,8 @@ enum AppTestType {
   reaction,
   timegeneration,
 }
+
+enum TestMode {
+  practice,
+  test,
+}
