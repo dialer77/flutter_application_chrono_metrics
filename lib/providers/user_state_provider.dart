@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_chrono_metrics/commons/enum_defines.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_reaction/testdata_reaction.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_auditory/testdata_time_estimation_auditory.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_auditory/testresult_time_estimation_auditory.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_visual/testdata_time_estimation_visual.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_visual/testresult_time_estimation_visual.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testdata_time_generation.dart';
@@ -369,6 +371,97 @@ class UserStateProvider extends ChangeNotifier {
       int count = 0;
       int taskCount = testResultTimeEstimationVisual.taskCount;
       for (var data in testResultTimeEstimationVisual.testDataList) {
+        int round = ((count / taskCount) + 1).toInt();
+        int task = ((count % taskCount) + 1).toInt();
+
+        sb.writeln('$round-$task,${data.targetTime},${data.elapsedTime}');
+        count++;
+      }
+
+      // UTF-8로 인코딩하여 파일 저장
+      await file.writeAsString(sb.toString(), encoding: utf8);
+    } catch (e) {
+      // 에러를 상위로 전파
+    }
+  }
+
+  TestResultTimeEstimationAuditory loadTestResultTimeEstimationAuditory(String filePath, UserInfomation userInfo) {
+    // path 의 파일 명칭 추출
+
+    String fileName = filePath.split('/').last;
+    // 파일이 없으면 그냥 반환
+    TestResultTimeEstimationAuditory testResultTimeEstimationAuditory = TestResultTimeEstimationAuditory(
+      userInfo: userInfo,
+    );
+    if (!File(filePath).existsSync()) {
+      return testResultTimeEstimationAuditory;
+    }
+
+    final resultSplit = fileName.split('_');
+    final String dateStr = resultSplit[1];
+    final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
+        '${dateStr.substring(4, 6)}-' // month
+        '${dateStr.substring(6, 8)} ' // day
+        '${dateStr.substring(8, 10)}:' // hour
+        '${dateStr.substring(10, 12)}:' // minute
+        '${dateStr.substring(12, 14)}' // second
+        );
+
+    testResultTimeEstimationAuditory.testTime = resultTime;
+
+    String content = File(filePath).readAsStringSync();
+    List<String> lines = content.split('\n');
+    lines.removeAt(0);
+
+    for (var line in lines) {
+      if (line.isEmpty || line == "") {
+        continue;
+      }
+      final contentSplit = line.split(',');
+      testResultTimeEstimationAuditory.addTestData(TestDataTimeEstimationAuditory(
+        targetTime: int.parse(contentSplit[1]),
+        elapsedTime: int.parse(contentSplit[2]),
+      ));
+    }
+    return testResultTimeEstimationAuditory;
+  }
+
+  void saveTestResultTimeEstimationAuditory({
+    required String studentId,
+    required String name,
+    required TestResultTimeEstimationAuditory testResultTimeEstimationAuditory,
+  }) async {
+    try {
+      // 기본 경로 설정
+      String basePath = '${Directory.current.path}/Data/TimeEstimationAuditory';
+
+      // Data/Reaction 폴더가 없으면 생성
+      Directory baseDir = Directory(basePath);
+      if (!await baseDir.exists()) {
+        await baseDir.create(recursive: true);
+      }
+
+      // 학번_이름 형식의 폴더 경로 생성
+      String userFolderPath = '$basePath/${studentId}_$name';
+      Directory userDir = Directory(userFolderPath);
+
+      // 사용자 폴더가 없으면 생성
+      if (!await userDir.exists()) {
+        await userDir.create();
+      }
+
+      late File file;
+      StringBuffer sb = StringBuffer();
+      // UTF-8 BOM 추가
+      sb.write('\uFEFF');
+
+      String timestamp = DateFormat('yyyyMMddHHmmss').format(testResultTimeEstimationAuditory.testTime);
+      file = File('$userFolderPath/result_$timestamp.csv');
+
+      sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
+      int count = 0;
+      int taskCount = testResultTimeEstimationAuditory.taskCount;
+      for (var data in testResultTimeEstimationAuditory.testDataList) {
         int round = ((count / taskCount) + 1).toInt();
         int task = ((count % taskCount) + 1).toInt();
 

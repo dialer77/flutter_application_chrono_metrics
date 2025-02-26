@@ -31,11 +31,11 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
   late Animation<double> _animation;
 
   int targetSeconds = 0;
-  final List<int> taskTimeList = [1, 1, 1, 1];
+  final List<int> taskTimeList = [3, 6, 12, 30];
   int taskCount = 1;
   final maxTaskCount = 4;
   int currentRound = 1;
-  final int maxRounds = 2;
+  final int maxRounds = 5;
 
   FocusNode focusNode = FocusNode();
   bool isPracticeMode = true;
@@ -76,6 +76,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
       testResult.setTaskCount(maxTaskCount);
 
       testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeEstimationVisual, userInfo);
+      taskTimeList.shuffle();
     });
   }
 
@@ -342,7 +343,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
                 ),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.1,
-                  child: Text('${data.targetTime}ms'),
+                  child: Text('${data.targetTime}초'),
                 ),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.1,
@@ -350,7 +351,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
                 ),
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.1,
-                  child: Text('${data.elapsedTime}ms'),
+                  child: Text('${data.elapsedTime}초'),
                 ),
               ],
             );

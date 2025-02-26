@@ -89,7 +89,7 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
     try {
       if (widget.isAuditoryMode) {
         // 청각 모드용 사운드 로드
-        await _startAudioPlayer.setAsset('assets/start.wav');
+        await _startAudioPlayer.setAsset('assets/start.mp3');
         await _movementAudioPlayer.setAsset('assets/movement.wav');
         await _completionAudioPlayer.setAsset('assets/finish.mp3');
       } else if (widget.customSoundPath != null) {
@@ -109,22 +109,53 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
       isPlaying = true;
     });
 
-    // 청각 모드일 경우 시작 사운드 재생
+    // 청각 모드일 경우 사이클 시작
     if (widget.isAuditoryMode) {
-      _playStartSound();
+      _startAuditoryModeCycle();
+    } else {
+      _startMetronomeTimer();
     }
+  }
 
+  void _startMetronomeTimer() {
     // BPM에 따른 간격 계산 (밀리초)
     int interval = (60 / bpm * 1000).round();
 
+    // 일반 모드: 타이머로 지속적인 메트로놈 동작
     _timer = Timer.periodic(Duration(milliseconds: interval), (timer) {
-      if (widget.isAuditoryMode) {
-        _playMovementSound();
-      } else {
-        _playClick();
-      }
+      _playClick();
       _animationController.forward().then((_) {
         _animationController.reverse();
+      });
+    });
+  }
+
+  // 청각 모드에서 사이클 시작
+  void _startAuditoryModeCycle() {
+    if (!isPlaying) return;
+
+    // 시작 사운드 재생 후 움직임 실행
+    _playStartSound().then((_) {
+      if (!isPlaying) return; // 재생 중간에 정지된 경우
+
+      // 움직임 소리 재생하고 애니메이션 실행
+      _playMovementSound();
+      _animationController.forward().then((_) {
+        return _animationController.reverse();
+      }).then((_) {
+        if (!isPlaying) return; // 재생 중간에 정지된 경우
+
+        // 완료 소리 재생 후 잠시 대기한 다음 사이클 반복
+        _playCompletionSound().then((_) {
+          if (!isPlaying) return;
+
+          // 1초 후 다시 사이클 시작
+          Future.delayed(const Duration(seconds: 1), () {
+            if (isPlaying) {
+              _startAuditoryModeCycle();
+            }
+          });
+        });
       });
     });
   }
@@ -139,11 +170,6 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
     _timer?.cancel();
     _timer = null;
     _animationController.reset();
-
-    // 청각 모드일 경우 완료 사운드 재생
-    if (widget.isAuditoryMode) {
-      _playCompletionSound();
-    }
   }
 
   void _playClick() async {
@@ -156,10 +182,12 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
   }
 
   // 청각 모드용 사운드 재생 함수들
-  void _playStartSound() async {
+  Future<void> _playStartSound() async {
     try {
       await _startAudioPlayer.seek(Duration.zero);
       await _startAudioPlayer.play();
+      // 시작 사운드가 끝날 때까지 대기
+      await Future.delayed(_startAudioPlayer.duration ?? Duration.zero);
     } catch (e) {
       debugPrint('시작 사운드 재생 실패: $e');
     }
@@ -174,10 +202,12 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
     }
   }
 
-  void _playCompletionSound() async {
+  Future<void> _playCompletionSound() async {
     try {
       await _completionAudioPlayer.seek(Duration.zero);
       await _completionAudioPlayer.play();
+      // 완료 사운드가 끝날 때까지 대기
+      await Future.delayed(_completionAudioPlayer.duration ?? Duration.zero);
     } catch (e) {
       debugPrint('완료 사운드 재생 실패: $e');
     }
