@@ -53,8 +53,8 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      CommonUtil.showUserInfoDialog(
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
         userNumberController: _userNumberController,
@@ -70,7 +70,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     });
 
     taskTimeList.shuffle();
-    testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timegeneration, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
+    testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeGeneration, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
   }
 
   @override
@@ -170,7 +170,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
             isPracticeMode: false,
           );
 
-          testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timegeneration, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
+          testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeGeneration, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
         }
       }
     }
@@ -222,149 +222,157 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardListener(
-      focusNode: focusNode,
-      onKeyEvent: (KeyEvent event) {
-        if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.keyM) {
-            toggleMode();
-          } else if (event.logicalKey == LogicalKeyboardKey.space) {
-            onSpacePressed(); // 스페이스바 이벤트 처리를 별도 메서드로 분리
-          }
+    return Focus(
+      onKeyEvent: (FocusNode node, KeyEvent event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
+          return KeyEventResult.handled;
         }
+        return KeyEventResult.ignored;
       },
-      child: PageLayoutBase(
-        recordDrawer: getRecordDrawer(),
-        headerWidget: Row(
-          children: [
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.05,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
+      child: KeyboardListener(
+        focusNode: focusNode,
+        onKeyEvent: (KeyEvent event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.tab) {
+              toggleMode();
+            } else if (event.logicalKey == LogicalKeyboardKey.space) {
+              onSpacePressed(); // 스페이스바 이벤트 처리를 별도 메서드로 분리
+            }
+          }
+        },
+        child: PageLayoutBase(
+          recordDrawer: getRecordDrawer(),
+          headerWidget: Row(
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.05,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
-            ),
-            IconButton(
-              onPressed: isStarted ? null : toggleMode,
-              icon: Icon(
-                isPracticeMode ? Icons.school : Icons.science,
-                size: 50,
-                color: isPracticeMode ? Colors.blue : Colors.purple,
+              IconButton(
+                onPressed: isStarted ? null : toggleMode,
+                icon: Icon(
+                  isPracticeMode ? Icons.school : Icons.science,
+                  size: 50,
+                  color: isPracticeMode ? Colors.blue : Colors.purple,
+                ),
+                tooltip: '${isPracticeMode ? "본실험" : "연습"} 모드로 전환 (Tab키)',
               ),
-              tooltip: '${isPracticeMode ? "본실험" : "연습"} 모드로 전환 (M키)',
-            ),
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.01,
-            ),
-            Text(
-              '시간 생성 과제 - ${isPracticeMode ? '연습' : '본실험'}',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.01,
               ),
-            ),
-          ],
-        ),
-        bodyWidget: Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isPracticeMode ? Colors.blue : Colors.purple,
-              width: 2,
-            ),
+              Text(
+                '시간 생성 과제 - ${isPracticeMode ? '연습' : '본실험'}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          child: Center(
-            child: isStarted || elapsedMilliseconds != null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (!isStarted && taskCount == maxTaskCount) ...[
-                        Text(
-                          '$currentRound 라운드 종료',
-                          style: getDisplayStyle(),
-                        ),
+          bodyWidget: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isPracticeMode ? Colors.blue : Colors.purple,
+                width: 2,
+              ),
+            ),
+            child: Center(
+              child: isStarted || elapsedMilliseconds != null
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (!isStarted && taskCount == maxTaskCount) ...[
+                          Text(
+                            '$currentRound 라운드 종료',
+                            style: getDisplayStyle(),
+                          ),
+                        ],
+                        (() {
+                          if (isShowingTarget || !isStarted) {
+                            return Text(
+                              getDisplayText(),
+                              style: getDisplayStyle(), // 스타일 적용
+                              textAlign: TextAlign.center,
+                            );
+                          } else {
+                            return Icon(
+                              isMeasuring ? Icons.circle : Icons.add,
+                              size: MediaQuery.of(context).size.height * 0.4,
+                              color: Colors.black,
+                            );
+                          }
+                        }()),
+                        if (isStarted == false) ...[
+                          const SizedBox(height: 20),
+                          const Text(
+                            '스페이스바를 눌러 다시 시작',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ],
-                      (() {
-                        if (isShowingTarget || !isStarted) {
-                          return Text(
-                            getDisplayText(),
-                            style: getDisplayStyle(), // 스타일 적용
-                            textAlign: TextAlign.center,
-                          );
-                        } else {
-                          return Icon(
-                            isMeasuring ? Icons.circle : Icons.add,
-                            size: MediaQuery.of(context).size.height * 0.4,
-                            color: Colors.black,
-                          );
-                        }
-                      }()),
-                      if (isStarted == false) ...[
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isPracticeMode ? Icons.school : Icons.science,
+                          size: 50,
+                          color: isPracticeMode ? Colors.blue : Colors.purple,
+                        ),
                         const SizedBox(height: 20),
-                        const Text(
-                          '스페이스바를 눌러 다시 시작',
+                        Text(
+                          isPracticeMode ? '연습 모드' : '본실험 모드',
                           style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
+                            color: isPracticeMode ? Colors.blue : Colors.purple,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '시작하려면 스페이스를 눌러주세요',
+                          style: TextStyle(
+                            color: isPracticeMode ? Colors.blue : Colors.purple,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isPracticeMode ? Icons.school : Icons.science,
-                        size: 50,
-                        color: isPracticeMode ? Colors.blue : Colors.purple,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        isPracticeMode ? '연습 모드' : '본실험 모드',
-                        style: TextStyle(
-                          color: isPracticeMode ? Colors.blue : Colors.purple,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '시작하려면 스페이스를 눌러주세요',
-                        style: TextStyle(
-                          color: isPracticeMode ? Colors.blue : Colors.purple,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                    ),
+            ),
           ),
-        ),
-        footerWidget: Visibility(
-          visible: isPracticeMode == false,
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$taskCount/$maxTaskCount 과제',
-                  style: TextStyle(
-                    color: isPracticeMode ? Colors.blue : Colors.purple,
-                    fontSize: MediaQuery.of(context).size.height * 0.03,
+          footerWidget: Visibility(
+            visible: isPracticeMode == false,
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$taskCount/$maxTaskCount 과제',
+                    style: TextStyle(
+                      color: isPracticeMode ? Colors.blue : Colors.purple,
+                      fontSize: MediaQuery.of(context).size.height * 0.03,
+                    ),
                   ),
-                ),
-                SizedBox(width: MediaQuery.of(context).size.width * 0.05),
-                Text(
-                  '$currentRound/$maxRounds 라운드',
-                  style: TextStyle(
-                    color: isPracticeMode ? Colors.blue : Colors.purple,
-                    fontSize: MediaQuery.of(context).size.height * 0.03,
+                  SizedBox(width: MediaQuery.of(context).size.width * 0.05),
+                  Text(
+                    '$currentRound/$maxRounds 라운드',
+                    style: TextStyle(
+                      color: isPracticeMode ? Colors.blue : Colors.purple,
+                      fontSize: MediaQuery.of(context).size.height * 0.03,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -421,7 +429,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                       result.testTime.toString(),
                     )),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.05,
+                  width: MediaQuery.of(context).size.width * 0.08,
                   child: const Text('생성시간 : '),
                 ),
                 SizedBox(

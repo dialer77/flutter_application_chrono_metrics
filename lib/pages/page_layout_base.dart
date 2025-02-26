@@ -57,7 +57,10 @@ class _PageLayoutBaseState extends State<PageLayoutBase> {
                         ),
                       ),
                     ),
-                    SizedBox(
+                    Container(
+                      padding: EdgeInsets.only(
+                        left: constraints.maxWidth * 0.05,
+                      ),
                       height: constraints.maxHeight * 0.05,
                       child: widget.footerWidget,
                     ),

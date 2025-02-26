@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 
 class MetronomeWidget extends StatefulWidget {
   /// 초기 BPM 값
@@ -27,17 +27,24 @@ class MetronomeWidget extends StatefulWidget {
   /// 커스텀 클릭 사운드 경로 (null이면 기본 사운드 사용)
   final String? customSoundPath;
 
+  /// 메트로놈 컨트롤러
+  final MetronomeController? controller;
+
+  final bool isAuditoryMode;
+
   const MetronomeWidget({
-    Key? key,
+    super.key,
     this.initialBpm = 60,
-    this.height = 600,
+    this.height = 300,
     this.width = 200,
     this.primaryColor = Colors.blue,
     this.stickColor = const Color(0xFF5D4037),
     this.baseColor = const Color(0xFFD7CCC8),
     this.knobColor = Colors.red,
     this.customSoundPath,
-  }) : super(key: key);
+    this.controller,
+    this.isAuditoryMode = false,
+  });
 
   @override
   _MetronomeWidgetState createState() => _MetronomeWidgetState();
@@ -48,6 +55,10 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
   bool isPlaying = false;
   Timer? _timer;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  // 청각 모드용 추가 오디오 플레이어
+  final AudioPlayer _startAudioPlayer = AudioPlayer();
+  final AudioPlayer _movementAudioPlayer = AudioPlayer();
+  final AudioPlayer _completionAudioPlayer = AudioPlayer();
   late AnimationController _animationController;
   late Animation<double> _animation;
 
@@ -69,13 +80,25 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
     );
 
     _loadSound();
+
+    // 컨트롤러가 있으면 연결
+    widget.controller?._state = this;
   }
 
   Future<void> _loadSound() async {
-    if (widget.customSoundPath != null) {
-      await _audioPlayer.setSource(AssetSource(widget.customSoundPath!));
-    } else {
-      await _audioPlayer.setSource(AssetSource('sounds/click.mp3'));
+    try {
+      if (widget.isAuditoryMode) {
+        // 청각 모드용 사운드 로드
+        await _startAudioPlayer.setAsset('assets/start.wav');
+        await _movementAudioPlayer.setAsset('assets/movement.wav');
+        await _completionAudioPlayer.setAsset('assets/finish.mp3');
+      } else if (widget.customSoundPath != null) {
+        await _audioPlayer.setAsset('assets/${widget.customSoundPath}');
+      } else {
+        await _audioPlayer.setAsset('assets/beep.mp3');
+      }
+    } catch (e) {
+      debugPrint('메트로놈 사운드 로드 실패: $e');
     }
   }
 
@@ -86,11 +109,20 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
       isPlaying = true;
     });
 
+    // 청각 모드일 경우 시작 사운드 재생
+    if (widget.isAuditoryMode) {
+      _playStartSound();
+    }
+
     // BPM에 따른 간격 계산 (밀리초)
     int interval = (60 / bpm * 1000).round();
 
     _timer = Timer.periodic(Duration(milliseconds: interval), (timer) {
-      _playClick();
+      if (widget.isAuditoryMode) {
+        _playMovementSound();
+      } else {
+        _playClick();
+      }
       _animationController.forward().then((_) {
         _animationController.reverse();
       });
@@ -107,34 +139,47 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
     _timer?.cancel();
     _timer = null;
     _animationController.reset();
-  }
 
-  void _playClick() async {
-    await _audioPlayer.stop();
-    await _audioPlayer.resume();
-  }
-
-  void _increaseBPM() {
-    if (bpm < 300) {
-      setState(() {
-        bpm += 1;
-      });
-      if (isPlaying) {
-        _stopMetronome();
-        _startMetronome();
-      }
+    // 청각 모드일 경우 완료 사운드 재생
+    if (widget.isAuditoryMode) {
+      _playCompletionSound();
     }
   }
 
-  void _decreaseBPM() {
-    if (bpm > 30) {
-      setState(() {
-        bpm -= 1;
-      });
-      if (isPlaying) {
-        _stopMetronome();
-        _startMetronome();
-      }
+  void _playClick() async {
+    try {
+      await _audioPlayer.seek(Duration.zero);
+      await _audioPlayer.play();
+    } catch (e) {
+      debugPrint('메트로놈 사운드 재생 실패: $e');
+    }
+  }
+
+  // 청각 모드용 사운드 재생 함수들
+  void _playStartSound() async {
+    try {
+      await _startAudioPlayer.seek(Duration.zero);
+      await _startAudioPlayer.play();
+    } catch (e) {
+      debugPrint('시작 사운드 재생 실패: $e');
+    }
+  }
+
+  void _playMovementSound() async {
+    try {
+      await _movementAudioPlayer.seek(Duration.zero);
+      await _movementAudioPlayer.play();
+    } catch (e) {
+      debugPrint('이동 사운드 재생 실패: $e');
+    }
+  }
+
+  void _playCompletionSound() async {
+    try {
+      await _completionAudioPlayer.seek(Duration.zero);
+      await _completionAudioPlayer.play();
+    } catch (e) {
+      debugPrint('완료 사운드 재생 실패: $e');
     }
   }
 
@@ -142,6 +187,10 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
   void dispose() {
     _timer?.cancel();
     _audioPlayer.dispose();
+    // 청각 모드용 플레이어 정리
+    _startAudioPlayer.dispose();
+    _movementAudioPlayer.dispose();
+    _completionAudioPlayer.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -163,114 +212,55 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
           ),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          // 메트로놈 애니메이션
-          Container(
-            height: widget.height * 0.7,
-            width: widget.width * 0.9,
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // 메트로놈 피라미드 바디
-                    CustomPaint(
-                      size: Size(widget.width * 0.9, widget.height * 0.7),
-                      painter: PyramidMetronomePainter(
-                        baseColor: widget.baseColor,
-                        primaryColor: widget.primaryColor,
-                      ),
-                    ),
+      child: SizedBox(
+        height: widget.height * 0.7,
+        width: widget.width * 0.9,
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                // 메트로놈 피라미드 바디
+                CustomPaint(
+                  size: Size(widget.width * 0.9, widget.height * 0.7),
+                  painter: PyramidMetronomePainter(
+                    baseColor: widget.baseColor,
+                    primaryColor: widget.primaryColor,
+                  ),
+                ),
 
-                    // 메트로놈 막대 - 중앙을 통과하여 아래까지 이어짐
-                    Center(
-                      child: Transform.rotate(
-                        angle: _animation.value,
-                        // 회전 중심점을 피라미드 중간으로 설정
-                        origin: Offset(0, widget.height * 0.3),
-                        alignment: Alignment.center,
-                        child: Container(
-                          // 막대 길이를 충분히 길게 설정하여 전체 피라미드를 가로지르도록 함
-                          height: widget.height * 0.7,
-                          width: 3,
-                          decoration: BoxDecoration(
-                            color: widget.stickColor,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: widget.knobColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                // 메트로놈 막대 - 중앙을 통과하여 아래까지 이어짐
+                Center(
+                  child: Transform.rotate(
+                    angle: _animation.value,
+                    // 회전 중심점을 피라미드 중간으로 설정
+                    origin: Offset(0, widget.height * 0.3),
+                    alignment: Alignment.center,
+                    child: Container(
+                      // 막대 길이를 충분히 길게 설정하여 전체 피라미드를 가로지르도록 함
+                      height: widget.height * 0.7,
+                      width: 3,
+                      decoration: BoxDecoration(
+                        color: widget.stickColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: widget.knobColor,
+                          shape: BoxShape.circle,
                         ),
                       ),
                     ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-          // BPM 표시
-          Text(
-            'BPM: $bpm',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          // BPM 조절 버튼
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildCircleButton(
-                icon: Icons.remove,
-                onPressed: _decreaseBPM,
-                color: widget.primaryColor,
-              ),
-              const SizedBox(width: 16),
-              _buildCircleButton(
-                icon: isPlaying ? Icons.stop : Icons.play_arrow,
-                onPressed: isPlaying ? _stopMetronome : _startMetronome,
-                color: isPlaying ? Colors.red : Colors.green,
-                size: 50,
-              ),
-              const SizedBox(width: 16),
-              _buildCircleButton(
-                icon: Icons.add,
-                onPressed: _increaseBPM,
-                color: widget.primaryColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCircleButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-    required Color color,
-    double size = 40,
-  }) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          shape: const CircleBorder(),
-          padding: EdgeInsets.zero,
-          backgroundColor: color,
-          foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        child: Icon(icon),
       ),
     );
   }
@@ -351,7 +341,7 @@ class PyramidMetronomePainter extends CustomPainter {
 
     final double scaleHeight = height * 0.7;
     final double startY = height * 0.15;
-    final int numMarks = 15; // 눈금 수
+    const int numMarks = 15; // 눈금 수
 
     for (int i = 0; i <= numMarks; i++) {
       final double y = startY + (scaleHeight / numMarks) * i;
@@ -368,7 +358,7 @@ class PyramidMetronomePainter extends CustomPainter {
         final TextPainter textPainter = TextPainter(
           text: TextSpan(
             text: '${40 + i * 10}',
-            style: TextStyle(color: Colors.white, fontSize: 9),
+            style: const TextStyle(color: Colors.white, fontSize: 9),
           ),
           textDirection: TextDirection.ltr,
         );
@@ -384,4 +374,43 @@ class PyramidMetronomePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 메트로놈 컨트롤러 - 외부에서 메트로놈을 제어하기 위한 클래스
+class MetronomeController {
+  _MetronomeWidgetState? _state;
+
+  /// 메트로놈 시작
+  void start() {
+    _state?._startMetronome();
+  }
+
+  /// 메트로놈 정지
+  void stop() {
+    _state?._stopMetronome();
+  }
+
+  /// 현재 재생 상태 확인
+  bool get isPlaying => _state?.isPlaying ?? false;
+
+  /// 현재 BPM 값 가져오기
+  int? get currentBpm => _state?.bpm;
+
+  /// BPM 값 설정하기
+  set setBpm(int newBpm) {
+    if (_state != null) {
+      final bool wasPlaying = _state!.isPlaying;
+      if (wasPlaying) {
+        _state!._stopMetronome();
+      }
+
+      _state!.setState(() {
+        _state!.bpm = newBpm.clamp(30, 300);
+      });
+
+      if (wasPlaying) {
+        _state!._startMetronome();
+      }
+    }
+  }
 }

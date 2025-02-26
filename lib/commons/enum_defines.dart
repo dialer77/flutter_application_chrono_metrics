@@ -12,7 +12,9 @@ enum TestState {
 
 enum AppTestType {
   reaction,
-  timegeneration,
+  timeGeneration,
+  timeEstimationVisual,
+  timeEstimationAuditory,
 }
 
 enum TestMode {

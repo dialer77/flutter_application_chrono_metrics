@@ -45,8 +45,8 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      CommonUtil.showUserInfoDialog(
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
         userNumberController: _userNumberController,

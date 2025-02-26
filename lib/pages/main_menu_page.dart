@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_chrono_metrics/pages/time_estimation_visual_task.dart';
+import 'package:flutter_application_chrono_metrics/pages/time_estimation_auditory_task.dart';
 import 'reaction_test_page.dart';
 import 'time_generation_page.dart';
 
@@ -15,8 +17,8 @@ class _MainMenuPageState extends State<MainMenuPage> {
   final List<(String, Widget?)> menuItems = [
     ('동작 반응성 속도 측정', const ReactionTestPage()),
     ('시간 생성', const TimeGenerationPage()),
-    ('시간 추정 - 시각 자극', null),
-    ('시간 추정 - 청각 자극', null),
+    ('시간 추정 - 시각 자극', const TimeEstimationVisualTaskPage()),
+    ('시간 추정 - 청각 자극', const TimeEstimationAuditoryTaskPage()),
     ('반응 기록', null),
   ];
 
