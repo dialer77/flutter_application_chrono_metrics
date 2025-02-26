@@ -67,7 +67,7 @@ class UserStateProvider extends ChangeNotifier {
   }
 
   // load test result reaction
-  List<String> loadTestResultListReaction(AppTestType appTestType, UserInfomation? userInfo) {
+  List<String> loadTestResultList(AppTestType appTestType, UserInfomation? userInfo) {
     UserInfomation loadUserInfo = userInfo ?? getUserInfo!;
     String path = '';
     switch (appTestType) {
@@ -90,6 +90,11 @@ class UserStateProvider extends ChangeNotifier {
     List<String> csvFiles = [];
     for (var folder in folders) {
       if (folder is File && folder.path.endsWith('.csv')) {
+        final fileName = folder.path.split(Platform.pathSeparator).last;
+        final resultSplit = fileName.split('_');
+        if (resultSplit[0] != 'result') {
+          continue;
+        }
         csvFiles.add(folder.path.split(Platform.pathSeparator).last);
       }
     }
@@ -182,6 +187,13 @@ class UserStateProvider extends ChangeNotifier {
       return practiceResultTimeGeneration;
     } else {
       String fileName = filePath.split('/').last;
+      // 파일이 없으면 그냥 반환
+      TestResultTimeGeneration testResultTimeGeneration = TestResultTimeGeneration(
+        userInfo: userInfo,
+      );
+      if (!File(filePath).existsSync()) {
+        return testResultTimeGeneration;
+      }
 
       final resultSplit = fileName.split('_');
       final String dateStr = resultSplit[1];
@@ -193,9 +205,22 @@ class UserStateProvider extends ChangeNotifier {
           '${dateStr.substring(12, 14)}' // second
           );
 
-      TestResultTimeGeneration testResultTimeGeneration = TestResultTimeGeneration(
-        userInfo: userInfo,
-      );
+      testResultTimeGeneration.testTime = resultTime;
+
+      String content = File(filePath).readAsStringSync();
+      List<String> lines = content.split('\n');
+      lines.removeAt(0);
+
+      for (var line in lines) {
+        if (line.isEmpty || line == "") {
+          continue;
+        }
+        final contentSplit = line.split(',');
+        testResultTimeGeneration.addTestData(TestDataTimeGeneration(
+          targetTime: int.parse(contentSplit[1]),
+          elapsedTime: int.parse(contentSplit[2]),
+        ));
+      }
       return testResultTimeGeneration;
     }
   }
@@ -235,6 +260,7 @@ class UserStateProvider extends ChangeNotifier {
 
         sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms), 테스트시간');
         int count = 1;
+
         for (var data in testResultTimeGeneration.testDataList) {
           sb.writeln('$count,${data.targetTime},${data.elapsedTime},${DateFormat('yyyy-MM-dd HH:mm:ss').format(data.testTime)}');
           count++;
@@ -245,8 +271,9 @@ class UserStateProvider extends ChangeNotifier {
 
         sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
         int count = 1;
+        int taskCount = testResultTimeGeneration.taskCount;
         for (var data in testResultTimeGeneration.testDataList) {
-          sb.writeln('$count,${data.targetTime},${data.elapsedTime}');
+          sb.writeln('${((count / taskCount) + 1).toStringAsFixed(0)}-${((count % taskCount) + 1).toStringAsFixed(0)},${data.targetTime},${data.elapsedTime}');
           count++;
         }
       }

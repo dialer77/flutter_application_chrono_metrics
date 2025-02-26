@@ -6,6 +6,7 @@ class TestResultTimeGeneration {
   bool isPracticeMode = false;
   DateTime testTime = DateTime.now();
   UserInfomation userInfo;
+  int taskCount = 5;
 
   TestResultTimeGeneration({
     required this.userInfo,
@@ -19,5 +20,9 @@ class TestResultTimeGeneration {
 
   void setTestTime(DateTime testTime) {
     this.testTime = testTime;
+  }
+
+  void setTaskCount(int taskCount) {
+    this.taskCount = taskCount;
   }
 }

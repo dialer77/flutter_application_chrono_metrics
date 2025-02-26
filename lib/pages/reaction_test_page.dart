@@ -5,6 +5,8 @@ import 'package:flutter_application_chrono_metrics/commons/enum_defines.dart';
 import 'package:flutter_application_chrono_metrics/commons/widgets/record_drawer.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_reaction/testdata_reaction.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_reaction/testresult_reaction.dart';
+import 'package:flutter_application_chrono_metrics/datas/user_infomation.dart';
+import 'package:flutter_application_chrono_metrics/pages/page_layout_base.dart';
 import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:async';
@@ -43,8 +45,8 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await CommonUtil.showUserInfoDialog(
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
         userNumberController: _userNumberController,
@@ -54,7 +56,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
         userInfo: Provider.of<UserStateProvider>(context, listen: false).getUserInfo!,
         startTime: DateTime.now(),
       );
-      testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultListReaction(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
+      testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
     });
     _initAudio();
   }
@@ -162,7 +164,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
             name: _nameController.text,
             testResultReaction: testResultReaction,
           );
-          testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultListReaction(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
+          testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);
         }
         setState(() {
           testState = TestState.finished;
@@ -173,137 +175,70 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      endDrawer: getReactionRecordDrawer(),
-      endDrawerEnableOpenDragGesture: false, // 드래그로 드로어 열기 비활성화
-      body: KeyboardListener(
-        focusNode: focusNode,
-        onKeyEvent: (KeyEvent event) {
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.space) {
-              onSpacePressed();
-            }
+    return KeyboardListener(
+      focusNode: focusNode,
+      onKeyEvent: (KeyEvent event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.space) {
+            onSpacePressed();
           }
-        },
-        child: Stack(
+        }
+      },
+      child: PageLayoutBase(
+        recordDrawer: getRecordDrawer(),
+        headerWidget: Row(
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    right: constraints.maxWidth * 0.05,
-                    bottom: constraints.maxHeight * 0.1,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        height: constraints.maxHeight * 0.1,
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: constraints.maxWidth * 0.05,
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_back),
-                                onPressed: () => Navigator.of(context).pop(),
-                              ),
-                            ),
-                            Icon(
-                              isAudioMode ? Icons.volume_up : Icons.visibility,
-                              size: 50,
-                              color: isAudioMode ? Colors.blue : Colors.purple,
-                            ),
-                            SizedBox(
-                              width: constraints.maxWidth * 0.01,
-                            ),
-                            Text(
-                              '동작 반응성 속도 측정 - ${isAudioMode ? '청각 모드' : '시각 모드'}',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            left: constraints.maxWidth * 0.05,
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: isAudioMode ? Colors.blue : Colors.purple,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: testState == TestState.testing && isAudioMode == false
-                                          ? Icon(
-                                              Icons.star,
-                                              size: constraints.maxHeight * 0.3,
-                                              color: Colors.red,
-                                            )
-                                          : testGuideText(24, Colors.blue),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        height: constraints.maxHeight * 0.05,
-                        child: Center(
-                          child: Text(
-                            '$currentRound/$maxRounds 라운드',
-                            style: TextStyle(
-                              color: isAudioMode ? Colors.blue : Colors.purple,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+            SizedBox(
+              width: MediaQuery.of(context).size.width * 0.05,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
-            Positioned(
-              right: 0,
-              top: MediaQuery.of(context).size.height / 2 - 30,
-              child: Builder(
-                builder: (BuildContext context) {
-                  return Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.inversePrimary,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        bottomLeft: Radius.circular(15),
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.more_vert),
-                      iconSize: 24,
-                      padding: const EdgeInsets.symmetric(horizontal: 0),
-                      constraints: const BoxConstraints(),
-                      onPressed: () => Scaffold.of(context).openEndDrawer(),
-                    ),
-                  );
-                },
+            Icon(
+              isAudioMode ? Icons.volume_up : Icons.visibility,
+              size: 50,
+              color: isAudioMode ? Colors.blue : Colors.purple,
+            ),
+            SizedBox(
+              width: MediaQuery.of(context).size.width * 0.01,
+            ),
+            Text(
+              '동작 반응성 속도 측정 - ${isAudioMode ? '청각 모드' : '시각 모드'}',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
+        ),
+        bodyWidget: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isAudioMode ? Colors.blue : Colors.purple,
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: testState == TestState.testing && isAudioMode == false
+                ? Icon(
+                    Icons.star,
+                    size: MediaQuery.of(context).size.height * 0.3,
+                    color: Colors.red,
+                  )
+                : testGuideText(24, Colors.blue),
+          ),
+        ),
+        footerWidget: Center(
+          child: Text(
+            '$currentRound/$maxRounds 라운드',
+            style: TextStyle(
+              color: isAudioMode ? Colors.blue : Colors.purple,
+              fontSize: 18,
+            ),
+          ),
         ),
       ),
     );
@@ -330,70 +265,129 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     }
   }
 
-  RecordDrawer getReactionRecordDrawer() {
+  RecordDrawer getRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
     String path = '${Directory.current.path}/Data/Reaction/${userInfo?.userNumber}_${userInfo?.name}';
     return RecordDrawer(
       path: path,
-      record: Scrollbar(
-        thumbVisibility: true,
-        controller: _scrollController, // 스크롤바에 컨트롤러 연결
-        child: MouseRegion(
-          cursor: SystemMouseCursors.grab,
-          child: GestureDetector(
-            onPanUpdate: (details) {
-              // 스크롤 컨트롤러를 통해 스크롤 위치 업데이트
-              _scrollController.jumpTo(
-                (_scrollController.offset - details.delta.dy).clamp(
-                  0.0,
-                  _scrollController.position.maxScrollExtent,
-                ),
-              );
-            },
-            child: SingleChildScrollView(
-              controller: _scrollController, // SingleChildScrollView에 컨트롤러 연결
-              physics: const ClampingScrollPhysics(),
-              child: Column(
-                children: testResultList.map((result) {
-                  final resultSplit = result.split('_');
-                  final String dateStr = resultSplit[1];
-                  final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
-                      '${dateStr.substring(4, 6)}-' // month
-                      '${dateStr.substring(6, 8)} ' // day
-                      '${dateStr.substring(8, 10)}:' // hour
-                      '${dateStr.substring(10, 12)}:' // minute
-                      '${dateStr.substring(12, 14)}' // second
-                      );
+      record: reactionResult(path, userInfo),
+      title: '반응 속도 기록',
+    );
+  }
 
-                  final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
-                  return ExpansionTile(
-                    title: Text(formattedDate),
-                    children: [
-                      Padding(
+  Widget reactionResult(String path, UserInfomation? userInfo) {
+    return Scrollbar(
+      thumbVisibility: true,
+      controller: _scrollController, // 스크롤바에 컨트롤러 연결
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: GestureDetector(
+          onPanUpdate: (details) {
+            // 스크롤 컨트롤러를 통해 스크롤 위치 업데이트
+            _scrollController.jumpTo(
+              (_scrollController.offset - details.delta.dy).clamp(
+                0.0,
+                _scrollController.position.maxScrollExtent,
+              ),
+            );
+          },
+          child: SingleChildScrollView(
+            controller: _scrollController, // SingleChildScrollView에 컨트롤러 연결
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              children: testResultList.map((result) {
+                final resultSplit = result.split('_');
+                final String dateStr = resultSplit[1];
+                final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
+                    '${dateStr.substring(4, 6)}-' // month
+                    '${dateStr.substring(6, 8)} ' // day
+                    '${dateStr.substring(8, 10)}:' // hour
+                    '${dateStr.substring(10, 12)}:' // minute
+                    '${dateStr.substring(12, 14)}' // second
+                    );
+
+                final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
+                return ExpansionTile(
+                  title: Text(formattedDate),
+                  children: [
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.9,
+                      child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: (() {
                             final testResultReaction = Provider.of<UserStateProvider>(context, listen: false).loadTestResultReaction('$path/$result', userInfo!);
 
-                            return [
-                              const Text('시각 모드 테스트 결과'),
-                              ...testResultReaction.visualTestData.map((data) => Text('${data.targetMilliseconds}ms: ${data.resultMilliseconds}ms')),
-                              const Text('청각 모드 테스트 결과'),
-                              ...testResultReaction.auditoryTestData.map((data) => Text('${data.targetMilliseconds}ms: ${data.resultMilliseconds}ms')),
+                            var list = [
+                              reactionResultItem(testResultReaction),
                             ];
+                            return list;
                           })(),
                         ),
                       ),
-                    ],
-                  );
-                }).toList(),
-              ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
         ),
       ),
-      title: '반응 속도 기록',
+    );
+  }
+
+  Widget reactionResultItem(TestResultReaction testResultReaction) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('시각 측정 결과'),
+        ...testResultReaction.visualTestData.map(
+          (data) => Row(
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.08,
+                child: const Text('목표 시간 : '),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.1,
+                child: Text('${data.targetMilliseconds}ms'),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.08,
+                child: const Text('측정 시간 : '),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.1,
+                child: Text('${data.resultMilliseconds + data.targetMilliseconds}ms'),
+              ),
+            ],
+          ),
+        ),
+        const Text('청각 측정 결과'),
+        ...testResultReaction.auditoryTestData.map(
+          (data) => Row(
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.08,
+                child: const Text('목표 시간 : '),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.1,
+                child: Text('${data.targetMilliseconds}ms'),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.08,
+                child: const Text('측정 시간 : '),
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.1,
+                child: Text('${data.resultMilliseconds + data.targetMilliseconds}ms'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
