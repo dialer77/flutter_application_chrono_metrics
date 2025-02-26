@@ -8,7 +8,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application_chrono_metrics/commons/widgets/record_drawer.dart';
 
