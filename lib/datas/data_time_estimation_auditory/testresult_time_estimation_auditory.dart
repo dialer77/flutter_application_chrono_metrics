@@ -6,6 +6,7 @@ class TestResultTimeEstimationAuditory {
   DateTime testTime = DateTime.now();
   UserInfomation userInfo;
   int taskCount = 4;
+  String? _audioFilePath; // 오디오 파일 경로 추가
 
   TestResultTimeEstimationAuditory({
     required this.userInfo,
@@ -23,5 +24,13 @@ class TestResultTimeEstimationAuditory {
 
   void setTaskCount(int taskCount) {
     this.taskCount = taskCount;
+  }
+
+  // 오디오 파일 경로 getter
+  String? get audioFilePath => _audioFilePath;
+
+  // 오디오 파일 경로 setter
+  void setAudioFilePath(String path) {
+    _audioFilePath = path;
   }
 }

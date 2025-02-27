@@ -115,6 +115,7 @@ class UserStateProvider extends ChangeNotifier {
     required String studentId,
     required String name,
     required TestResultReaction testResultReaction,
+    String? audioFilePath, // 음성 파일 경로 추가
   }) async {
     try {
       // 기본 경로 설정
@@ -135,30 +136,44 @@ class UserStateProvider extends ChangeNotifier {
         await userDir.create();
       }
 
-      // 여기에 실제 파일 저장 로직 추가
-      // 예시: 타임스탬프를 사용한 파일 이름
-      String timestamp = DateFormat('yyyyMMddHHmmss').format(testResultReaction.startTime);
-      File file = File('$userFolderPath/result_$timestamp.csv');
+      // 고정된 파일명 사용 (사용자별 하나의 파일)
+      File file = File('$userFolderPath/results.csv');
+      bool fileExists = await file.exists();
 
       StringBuffer sb = StringBuffer();
-      // UTF-8 BOM 추가
-      sb.write('\uFEFF');
-      sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
+
+      // 파일이 존재하지 않으면 UTF-8 BOM과 헤더 추가
+      if (!fileExists) {
+        // UTF-8 BOM 추가
+        sb.write('\uFEFF');
+        sb.writeln('테스트일시,횟수,자극타입,생성시간(ms),사용자반응시간(ms),음성파일경로');
+      }
+
+      // 현재 테스트 시간을 형식화
+      String testDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(testResultReaction.startTime);
+
+      // 시각 자극 결과 추가
       int count = 1;
       for (var data in testResultReaction.visualTestData) {
-        sb.writeln('시각_$count, ${data.targetMilliseconds}, ${data.resultMilliseconds}');
+        sb.writeln('$testDateTime,$count,시각,${data.targetMilliseconds},${data.resultMilliseconds},${audioFilePath ?? ""}');
         count++;
       }
 
+      // 청각 자극 결과 추가
       count = 1;
       for (var data in testResultReaction.auditoryTestData) {
-        sb.writeln('청각_$count, ${data.targetMilliseconds}, ${data.resultMilliseconds}');
+        sb.writeln('$testDateTime,$count,청각,${data.targetMilliseconds},${data.resultMilliseconds},${audioFilePath ?? ""}');
         count++;
       }
 
-      // UTF-8로 인코딩하여 파일 저장
-      await file.writeAsString(sb.toString(), encoding: utf8);
+      // 파일이 이미 존재하면 데이터 추가, 아니면 새로 생성
+      if (fileExists) {
+        await file.writeAsString(sb.toString(), encoding: utf8, mode: FileMode.append);
+      } else {
+        await file.writeAsString(sb.toString(), encoding: utf8);
+      }
     } catch (e) {
+      print('테스트 결과 저장 중 오류 발생: $e');
       // 에러를 상위로 전파
     }
   }
@@ -473,6 +488,71 @@ class UserStateProvider extends ChangeNotifier {
       await file.writeAsString(sb.toString(), encoding: utf8);
     } catch (e) {
       // 에러를 상위로 전파
+    }
+  }
+
+  /// 반응 테스트의 결과 파일에서 테스트 결과 목록을 로드합니다.
+  /// 각 테스트 세션을 날짜별로 그룹화하여 반환합니다.
+  Map<String, List<Map<String, dynamic>>> loadReactionResultsForDrawer(UserInfomation? userInfo) {
+    UserInfomation loadUserInfo = userInfo ?? getUserInfo!;
+
+    // 결과 파일 경로
+    String userFolderPath = '${Directory.current.path}/Data/Reaction/${loadUserInfo.userNumber}_${loadUserInfo.name}';
+    String resultsFilePath = '$userFolderPath/results.csv';
+
+    // 결과 파일이 없으면 빈 맵 반환
+    if (!File(resultsFilePath).existsSync()) {
+      return {};
+    }
+
+    try {
+      // 파일 읽기
+      String content = File(resultsFilePath).readAsStringSync();
+      List<String> lines = content.split('\n');
+
+      // 헤더 제거 (첫 번째 줄)
+      if (lines.isNotEmpty && lines[0].contains('테스트일시')) {
+        lines.removeAt(0);
+      }
+
+      // 날짜별로 그룹화할 맵
+      Map<String, List<Map<String, dynamic>>> resultsByDate = {};
+
+      for (var line in lines) {
+        if (line.isEmpty) continue;
+
+        List<String> values = line.split(',');
+        if (values.length < 5) continue; // 최소 필요 필드 검사
+
+        String testDateTime = values[0].trim();
+        String testDate = testDateTime.split(' ')[0]; // 날짜 부분만 추출
+        int count = int.tryParse(values[1]) ?? 0;
+        String stimulusType = values[2].trim();
+        int targetTime = int.tryParse(values[3]) ?? 0;
+        int responseTime = int.tryParse(values[4]) ?? 0;
+        String audioFilePath = values.length > 5 ? values[5].trim() : '';
+
+        // 테스트 결과 정보 맵 생성
+        Map<String, dynamic> resultInfo = {
+          'testDateTime': testDateTime,
+          'count': count,
+          'stimulusType': stimulusType,
+          'targetTime': targetTime,
+          'responseTime': responseTime,
+          'audioFilePath': audioFilePath
+        };
+
+        // 날짜별로 결과 추가
+        if (!resultsByDate.containsKey(testDate)) {
+          resultsByDate[testDate] = [];
+        }
+        resultsByDate[testDate]!.add(resultInfo);
+      }
+
+      return resultsByDate;
+    } catch (e) {
+      print('결과 파일 읽기 오류: $e');
+      return {};
     }
   }
 }

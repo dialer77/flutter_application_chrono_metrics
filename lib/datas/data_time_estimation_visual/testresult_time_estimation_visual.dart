@@ -6,6 +6,7 @@ class TestResultTimeEstimationVisual {
   DateTime testTime = DateTime.now();
   UserInfomation userInfo;
   int taskCount = 4;
+  String? _audioFilePath;
 
   TestResultTimeEstimationVisual({
     required this.userInfo,
@@ -23,5 +24,11 @@ class TestResultTimeEstimationVisual {
 
   void setTaskCount(int taskCount) {
     this.taskCount = taskCount;
+  }
+
+  String? get audioFilePath => _audioFilePath;
+
+  void setAudioFilePath(String path) {
+    _audioFilePath = path;
   }
 }

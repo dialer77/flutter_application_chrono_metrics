@@ -287,94 +287,116 @@ class _TestResultPageState extends State<TestResultPage> {
   }
 
   Widget reactionResult(String path, UserInfomation? userInfo) {
-    return Column(
-      children: Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.reaction, userInfo).map((result) {
-        final resultSplit = result.split('_');
-        final String dateStr = resultSplit[1];
-        final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
-            '${dateStr.substring(4, 6)}-' // month
-            '${dateStr.substring(6, 8)} ' // day
-            '${dateStr.substring(8, 10)}:' // hour
-            '${dateStr.substring(10, 12)}:' // minute
-            '${dateStr.substring(12, 14)}' // second
-            );
+    // 결과 파일에서 데이터 로드
+    final resultsByDate = Provider.of<UserStateProvider>(context, listen: false).loadReactionResultsForDrawer(userInfo);
 
-        final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
-        return ExpansionTile(
-          title: Text(formattedDate),
-          children: [
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.9,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: (() {
-                    final testResultReaction = Provider.of<UserStateProvider>(context, listen: false).loadTestResultReaction('$path/$result', userInfo!);
+    if (resultsByDate.isEmpty) {
+      return const Center(
+        child: Text('저장된 테스트 결과가 없습니다.'),
+      );
+    }
 
-                    var list = [
-                      reactionResultItem(testResultReaction),
-                    ];
-                    return list;
-                  })(),
-                ),
-              ),
-            ),
-          ],
-        );
-      }).toList(),
+    return SingleChildScrollView(
+      child: Column(
+        children: resultsByDate.entries.map((entry) {
+          // 날짜를 키로 사용
+          String date = entry.key;
+          List<Map<String, dynamic>> results = entry.value;
+
+          // 날짜별 그룹화된 테스트 결과 표시
+          return ExpansionTile(
+            title: Text('테스트 날짜: $date'),
+            children: [
+              ...results
+                  .fold<Map<String, List<Map<String, dynamic>>>>({}, // 초기 빈 맵
+                      (map, result) {
+                    // 시간별로 그룹화
+                    String key = result['testDateTime'];
+                    if (!map.containsKey(key)) {
+                      map[key] = [];
+                    }
+                    map[key]!.add(result);
+                    return map;
+                  })
+                  .entries
+                  .map((timeEntry) {
+                    // 특정 시간의 테스트 세션
+                    String testTime = timeEntry.key;
+                    List<Map<String, dynamic>> sessionResults = timeEntry.value;
+
+                    // 오디오 파일 경로 (모든 결과가 동일한 오디오 파일을 가리킴)
+                    String audioPath = sessionResults.first['audioFilePath'];
+
+                    return ExpansionTile(
+                      title: Text('세션 시간: ${testTime.split(' ')[1]}'),
+                      subtitle: audioPath.isNotEmpty ? const Text('녹음 파일 있음', style: TextStyle(color: Colors.green)) : null,
+                      children: [
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.9,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 시각 자극 결과
+                                const Text('시각 측정 결과', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ...sessionResults.where((result) => result['stimulusType'] == '시각').map((result) => reactionResultRow(result)),
+
+                                const SizedBox(height: 16),
+
+                                // 청각 자극 결과
+                                const Text('청각 측정 결과', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ...sessionResults.where((result) => result['stimulusType'] == '청각').map((result) => reactionResultRow(result)),
+
+                                // 오디오 파일 링크 (있는 경우)
+                                if (audioPath.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 16.0),
+                                    child: OutlinedButton.icon(
+                                      icon: const Icon(Icons.play_arrow),
+                                      label: const Text('녹음 재생'),
+                                      onPressed: () {
+                                        // 오디오 파일 재생 로직
+                                        print('오디오 파일 재생: $audioPath');
+                                      },
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+            ],
+          );
+        }).toList(),
+      ),
     );
   }
 
-  Widget reactionResultItem(TestResultReaction testResultReaction) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget reactionResultRow(Map<String, dynamic> result) {
+    return Row(
       children: [
-        const Text('시각 측정 결과'),
-        ...testResultReaction.visualTestData.map(
-          (data) => Row(
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.08,
-                child: const Text('목표 시간 : '),
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.1,
-                child: Text('${data.targetMilliseconds}ms'),
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.08,
-                child: const Text('측정 시간 : '),
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.1,
-                child: Text('${data.resultMilliseconds + data.targetMilliseconds}ms'),
-              ),
-            ],
-          ),
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.08,
+          child: Text('${result['count']}회차'),
         ),
-        const Text('청각 측정 결과'),
-        ...testResultReaction.auditoryTestData.map(
-          (data) => Row(
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.08,
-                child: const Text('목표 시간 : '),
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.1,
-                child: Text('${data.targetMilliseconds}ms'),
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.08,
-                child: const Text('측정 시간 : '),
-              ),
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.1,
-                child: Text('${data.resultMilliseconds + data.targetMilliseconds}ms'),
-              ),
-            ],
-          ),
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.08,
+          child: const Text('목표 시간:'),
+        ),
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.1,
+          child: Text('${result['targetTime']}ms'),
+        ),
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.08,
+          child: const Text('반응 시간:'),
+        ),
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.1,
+          child: Text('${result['responseTime']}ms'),
         ),
       ],
     );

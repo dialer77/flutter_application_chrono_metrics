@@ -5,15 +5,28 @@ import 'package:window_manager/window_manager.dart';
 import 'pages/main_menu_page.dart';
 import 'package:provider/provider.dart';
 import 'providers/user_state_provider.dart';
+import 'package:flutter/services.dart';
+import 'commons/audio_recording_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
-    WindowManager.instance.setMinimumSize(const Size(1280, 720));
-    WindowManager.instance.setSize(const Size(1280, 720));
+    WindowManager.instance.setMinimumSize(const Size(1200, 700));
+    WindowManager.instance.setMaximumSize(const Size(1200, 700));
+    WindowManager.instance.setSize(const Size(1200, 700));
     WindowManager.instance.setTitle('Chrono Metrics');
   }
+
+  // 앱 종료 리스너 추가
+  SystemChannels.lifecycle.setMessageHandler((message) async {
+    if (message == AppLifecycleState.detached.toString()) {
+      // 앱이 종료될 때 정리 작업 수행
+      await AudioRecordingManager().cleanup();
+    }
+    return null;
+  });
+
   runApp(
     MultiProvider(
       providers: [

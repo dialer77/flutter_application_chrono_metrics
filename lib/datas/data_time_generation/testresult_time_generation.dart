@@ -7,10 +7,18 @@ class TestResultTimeGeneration {
   DateTime testTime = DateTime.now();
   UserInfomation userInfo;
   int taskCount = 5;
+  String? _audioFilePath;
 
   TestResultTimeGeneration({
     required this.userInfo,
-  });
+    DateTime? startTime,
+    this.taskCount = 5,
+    this.isPracticeMode = false,
+  }) {
+    if (startTime != null) {
+      testTime = startTime;
+    }
+  }
 
   void addTestData(TestDataTimeGeneration testData) {
     _testDataList.add(testData);
@@ -24,5 +32,11 @@ class TestResultTimeGeneration {
 
   void setTaskCount(int taskCount) {
     this.taskCount = taskCount;
+  }
+
+  String? get audioFilePath => _audioFilePath;
+
+  void setAudioFilePath(String path) {
+    _audioFilePath = path;
   }
 }

@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_application_chrono_metrics/commons/audio_recording_manager.dart';
 
 class TimeEstimationAuditoryTaskPage extends StatefulWidget {
   const TimeEstimationAuditoryTaskPage({super.key});
@@ -41,6 +42,10 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   bool isPracticeMode = true;
   bool isStarted = false;
 
+  // 녹음 관련 변수 추가
+  bool _isRecording = false;
+  String? _currentRecordingPath;
+
   List<String> testResultList = [];
   TestResultTimeEstimationAuditory testResult = TestResultTimeEstimationAuditory(userInfo: UserInfomation(name: '', userNumber: ''));
 
@@ -59,6 +64,9 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 오디오 녹음 매니저 초기화
+      await AudioRecordingManager().initialize();
+
       await CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
@@ -77,6 +85,56 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     });
   }
 
+  // 녹음 시작 메서드
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+
+    final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+    if (userInfo == null) return;
+
+    final dateTime = DateTime.now();
+    final dateStr = DateFormat('yyyyMMddHHmmss').format(dateTime);
+
+    // 파일 경로 직접 생성
+    final directory = Directory('${Directory.current.path}/Data/TimeEstimationAuditory/${userInfo.userNumber}_${userInfo.name}/recordings');
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+
+    final filePath = '${directory.path}/TEA_${userInfo.userNumber}_${userInfo.name}_$dateStr.m4a';
+
+    // 생성된 파일 경로로 녹음 시작
+    final success = await AudioRecordingManager().startRecording(filePath);
+
+    if (success && mounted) {
+      setState(() {
+        _isRecording = true;
+        _currentRecordingPath = filePath;
+      });
+    }
+  }
+
+  // 녹음 중지 메서드
+  Future<void> _stopRecording() async {
+    if (!_isRecording || _currentRecordingPath == null) return;
+
+    // 현재 녹음 중인 파일 경로 저장
+    final filePath = _currentRecordingPath!;
+
+    // 파일 경로를 매개변수로 전달하여 녹음 중지
+    final success = await AudioRecordingManager().stopRecording(filePath);
+
+    if (success && mounted) {
+      setState(() {
+        _isRecording = false;
+      });
+
+      // 테스트 결과에 녹음 파일 경로 설정
+      testResult.setAudioFilePath(filePath);
+      print('녹음 파일 저장됨: $filePath');
+    }
+  }
+
   void _loadAudioAssets() async {
     await _startAudioPlayer.setAsset('assets/start.mp3');
     await _movementAudioPlayer.setAsset('assets/longMove.wav');
@@ -90,6 +148,14 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     _finishAudioPlayer.dispose();
     _finishTimer?.cancel();
 
+    // 녹음 중인 경우 중지 - 비동기 작업이지만 dispose에서는 await 할 수 없으므로
+    // 페이지 나가기 전에 처리했는지 확인하는 것이 중요
+    if (_isRecording) {
+      // 비동기 작업이지만 dispose에서는 기다릴 수 없음
+      // 따라서 _stopRecording() 내부에서 mounted 확인이 중요
+      _stopRecording();
+    }
+
     super.dispose();
   }
 
@@ -98,6 +164,11 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
       targetSeconds = taskTimeList[taskCount - 1];
       _isPlayingSound = true;
     });
+
+    // 본 테스트 모드이고 첫 라운드의 첫 번째 과제일 때만 녹음 시작
+    if (!isPracticeMode && currentRound == 1 && taskCount == 1 && !_isRecording) {
+      _startRecording();
+    }
 
     _prepareAudioSession();
 
@@ -151,8 +222,10 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
 
         _finishAudioPlayer.playerStateStream.listen((state) {
           if (state.processingState == ProcessingState.completed) {
-            if (_isPlayingSound) {
-              _isPlayingSound = false;
+            if (_isPlayingSound && mounted) {
+              setState(() {
+                _isPlayingSound = false;
+              });
               _endTask();
             }
           }
@@ -249,6 +322,12 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
           taskTimeList.shuffle();
         } else {
           currentRound = 1;
+
+          // 모든 테스트가 완료되면 녹음 중지 및 결과 저장
+          if (!isPracticeMode && _isRecording) {
+            _stopRecording();
+          }
+
           _saveTestResults();
           final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
           testResult = TestResultTimeEstimationAuditory(userInfo: userInfo!);
@@ -412,6 +491,24 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 오디오 파일이 있으면 재생 버튼 표시
+        if (testResult.audioFilePath != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                const Text('녹음: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('녹음 재생'),
+                  onPressed: () {
+                    // 오디오 파일 재생 로직
+                    print('오디오 파일 재생: ${testResult.audioFilePath}');
+                  },
+                ),
+              ],
+            ),
+          ),
         ...testResult.testDataList.asMap().entries.map(
           (entry) {
             final index = entry.key;
@@ -460,6 +557,11 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
 
   void toggleMode() {
     if (!isStarted) {
+      // 모드 전환시 녹음 중인 경우 중지
+      if (_isRecording) {
+        _stopRecording();
+      }
+
       setState(() {
         isPracticeMode = !isPracticeMode;
       });
@@ -495,6 +597,24 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
             fontWeight: FontWeight.bold,
           ),
         ),
+        const Spacer(),
+        // 녹음 상태 표시
+        if (_isRecording)
+          const Row(
+            children: [
+              Icon(
+                Icons.mic,
+                color: Colors.red,
+                size: 20,
+              ),
+              SizedBox(width: 5),
+              Text(
+                "녹음 중",
+                style: TextStyle(color: Colors.red),
+              ),
+              SizedBox(width: 10),
+            ],
+          ),
       ],
     );
   }

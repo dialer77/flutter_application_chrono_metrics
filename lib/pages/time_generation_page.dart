@@ -16,6 +16,7 @@ import 'package:flutter_application_chrono_metrics/providers/user_state_provider
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application_chrono_metrics/commons/widgets/record_drawer.dart';
+import 'package:flutter_application_chrono_metrics/commons/audio_recording_manager.dart';
 
 class TimeGenerationPage extends StatefulWidget {
   const TimeGenerationPage({super.key});
@@ -38,6 +39,10 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _userNumberController = TextEditingController();
 
+  // 녹음 관련 변수 추가
+  bool _isRecording = false;
+  String? _currentRecordingPath;
+
   int targetSeconds = 0;
   int? elapsedMilliseconds;
   final List<int> taskTimeList = [3, 5, 7, 9, 12];
@@ -54,6 +59,9 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 오디오 녹음 매니저 초기화
+      await AudioRecordingManager().initialize();
+
       await CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
@@ -79,6 +87,56 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     super.dispose();
   }
 
+  // 녹음 시작 메서드
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+
+    final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+    if (userInfo == null) return;
+
+    final dateTime = DateTime.now();
+    final dateStr = DateFormat('yyyyMMddHHmmss').format(dateTime);
+
+    // 파일 경로 직접 생성
+    final directory = Directory('${Directory.current.path}/Data/TimeGeneration/${userInfo.userNumber}_${userInfo.name}/recordings');
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+
+    final filePath = '${directory.path}/TG_${userInfo.userNumber}_${userInfo.name}_$dateStr.m4a';
+
+    // 생성된 파일 경로로 녹음 시작
+    final success = await AudioRecordingManager().startRecording(filePath);
+
+    if (success) {
+      setState(() {
+        _isRecording = true;
+        _currentRecordingPath = filePath;
+      });
+    }
+  }
+
+  // 녹음 중지 메서드
+  Future<void> _stopRecording() async {
+    if (!_isRecording || _currentRecordingPath == null) return;
+
+    // 현재 녹음 중인 파일 경로 저장
+    final filePath = _currentRecordingPath!;
+
+    // 파일 경로를 매개변수로 전달하여 녹음 중지
+    final success = await AudioRecordingManager().stopRecording(filePath);
+
+    if (success) {
+      setState(() {
+        _isRecording = false;
+      });
+
+      // 테스트 결과에 녹음 파일 경로 설정
+      testResultTimeGeneration.setAudioFilePath(filePath);
+      print('녹음 파일 저장됨: $filePath');
+    }
+  }
+
   void toggleMode() {
     if (!isStarted) {
       setState(() {
@@ -89,6 +147,11 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   }
 
   void startTest() {
+    // 연습 모드가 아니고 첫 테스트 라운드의 첫 번째 과제일 때만 녹음 시작
+    if (!isPracticeMode && currentRound == 1 && taskCount == 1 && elapsedMilliseconds == null) {
+      _startRecording();
+    }
+
     setState(() {
       if (currentRound >= maxRounds && taskCount >= maxTaskCount) {
         currentRound = 1;
@@ -159,8 +222,18 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
         ));
 
         if (taskCount == maxTaskCount && currentRound == maxRounds) {
+          // 테스트 완료 시 녹음 중지 및 녹음 파일 경로 저장
+          if (_isRecording) {
+            _stopRecording();
+          }
+
           testResultTimeGeneration.setTestTime(DateTime.now());
           testResultTimeGeneration.setTaskCount(maxTaskCount);
+
+          // 녹음 파일 경로 설정
+          if (_currentRecordingPath != null) {
+            testResultTimeGeneration.setAudioFilePath(_currentRecordingPath!);
+          }
 
           final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
           Provider.of<UserStateProvider>(context, listen: false).saveTestResultTimeGeneration(
@@ -177,7 +250,6 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     setState(() {
       isStarted = false;
       isMeasuring = false;
-
       startTime = null;
     });
   }
@@ -236,7 +308,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
             if (event.logicalKey == LogicalKeyboardKey.tab) {
               toggleMode();
             } else if (event.logicalKey == LogicalKeyboardKey.space) {
-              onSpacePressed(); // 스페이스바 이벤트 처리를 별도 메서드로 분리
+              onSpacePressed();
             }
           }
         },
@@ -270,6 +342,24 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const Spacer(),
+              // 녹음 상태 표시
+              if (_isRecording)
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.mic,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      "녹음 중",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    SizedBox(width: 10),
+                  ],
+                ),
             ],
           ),
           bodyWidget: Container(
@@ -510,6 +600,29 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 오디오 파일이 있는 경우 재생 버튼 표시
+        if (testResult.audioFilePath != null && testResult.audioFilePath!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Row(
+              children: [
+                const Icon(Icons.mic, color: Colors.green, size: 16),
+                const SizedBox(width: 8),
+                Text("녹음 파일: ${testResult.audioFilePath!.split('/').last}"),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('녹음 재생'),
+                  onPressed: () {
+                    // 오디오 파일 재생 로직
+                    print('오디오 파일 재생: ${testResult.audioFilePath}');
+                  },
+                ),
+              ],
+            ),
+          ),
+
+        // 기존 결과 표시 로직
         ...testResult.testDataList.asMap().entries.map(
           (entry) {
             final index = entry.key;

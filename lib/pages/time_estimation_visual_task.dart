@@ -13,6 +13,7 @@ import 'package:flutter_application_chrono_metrics/pages/page_layout_base.dart';
 import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_application_chrono_metrics/commons/audio_recording_manager.dart';
 
 class TimeEstimationVisualTaskPage extends StatefulWidget {
   const TimeEstimationVisualTaskPage({super.key});
@@ -41,6 +42,10 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
   bool isPracticeMode = true;
   bool isStarted = false;
 
+  // 녹음 관련 변수 추가
+  bool _isRecording = false;
+  String? _currentRecordingPath;
+
   List<String> testResultList = [];
   TestResultTimeEstimationVisual testResult = TestResultTimeEstimationVisual(userInfo: UserInfomation(name: '', userNumber: ''));
 
@@ -64,6 +69,9 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
       });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 오디오 녹음 매니저 초기화
+      await AudioRecordingManager().initialize();
+
       await CommonUtil.showUserInfoDialog(
         context: context,
         nameController: _nameController,
@@ -82,14 +90,80 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
 
   @override
   void dispose() {
+    // 애니메이션 컨트롤러 dispose 전에 멈추기
+    _animationController.stop();
     _animationController.dispose();
+
+    // 녹음 중인 경우 중지 - 비동기 작업이지만 dispose에서는 await 할 수 없으므로
+    // 페이지 나가기 전에 처리했는지 확인하는 것이 중요
+    if (_isRecording) {
+      // 비동기 작업이지만 dispose에서는 기다릴 수 없음
+      // 따라서 _stopRecording() 내부에서 mounted 확인이 중요
+      _stopRecording();
+    }
+
     super.dispose();
+  }
+
+  // 녹음 시작 메서드
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+
+    final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+    if (userInfo == null) return;
+
+    final dateTime = DateTime.now();
+    final dateStr = DateFormat('yyyyMMddHHmmss').format(dateTime);
+
+    // 파일 경로 직접 생성
+    final directory = Directory('${Directory.current.path}/Data/TimeEstimationVisual/${userInfo.userNumber}_${userInfo.name}/recordings');
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+
+    final filePath = '${directory.path}/TEV_${userInfo.userNumber}_${userInfo.name}_$dateStr.m4a';
+
+    // 생성된 파일 경로로 녹음 시작
+    final success = await AudioRecordingManager().startRecording(filePath);
+
+    if (success && mounted) {
+      setState(() {
+        _isRecording = true;
+        _currentRecordingPath = filePath;
+      });
+    }
+  }
+
+  // 녹음 중지 메서드
+  Future<void> _stopRecording() async {
+    if (!_isRecording || _currentRecordingPath == null) return;
+
+    // 현재 녹음 중인 파일 경로 저장
+    final filePath = _currentRecordingPath!;
+
+    // 파일 경로를 매개변수로 전달하여 녹음 중지
+    final success = await AudioRecordingManager().stopRecording(filePath);
+
+    if (success && mounted) {
+      setState(() {
+        _isRecording = false;
+      });
+
+      // 테스트 결과에 녹음 파일 경로 설정
+      testResult.setAudioFilePath(filePath);
+      print('녹음 파일 저장됨: $filePath');
+    }
   }
 
   void _startTask() {
     targetSeconds = taskTimeList[taskCount - 1];
 
     _animationController.duration = Duration(seconds: targetSeconds);
+
+    // 본 테스트 모드이고 첫 라운드의 첫 번째 과제일 때만 녹음 시작
+    if (!isPracticeMode && currentRound == 1 && taskCount == 1 && !_isRecording) {
+      _startRecording();
+    }
 
     _animationController.forward(from: 0.0);
   }
@@ -160,6 +234,12 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
           taskTimeList.shuffle();
         } else {
           currentRound = 1;
+
+          // 모든 테스트가 완료되면 녹음 중지 및 결과 저장
+          if (!isPracticeMode && _isRecording) {
+            _stopRecording();
+          }
+
           _saveTestResults();
           final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
           testResult = TestResultTimeEstimationVisual(userInfo: userInfo!);
@@ -325,6 +405,28 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 오디오 파일이 있는 경우 재생 버튼 표시
+        if (testResult.audioFilePath != null && testResult.audioFilePath!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Row(
+              children: [
+                const Icon(Icons.mic, color: Colors.green, size: 16),
+                const SizedBox(width: 8),
+                Text("녹음 파일: ${testResult.audioFilePath!.split('/').last}"),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('녹음 재생'),
+                  onPressed: () {
+                    // 오디오 파일 재생 로직
+                    print('오디오 파일 재생: ${testResult.audioFilePath}');
+                  },
+                ),
+              ],
+            ),
+          ),
+
         ...testResult.testDataList.asMap().entries.map(
           (entry) {
             final index = entry.key;
@@ -376,6 +478,11 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
 
   void toggleMode() {
     if (!isStarted) {
+      // 모드 전환시 녹음 중인 경우 중지
+      if (_isRecording) {
+        _stopRecording();
+      }
+
       setState(() {
         isPracticeMode = !isPracticeMode;
       });
@@ -396,7 +503,6 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
           onPressed: isStarted ? null : toggleMode,
           icon: Icon(
             isPracticeMode ? Icons.school : Icons.science,
-            size: 50,
             color: isPracticeMode ? Colors.blue : Colors.purple,
           ),
           tooltip: '${isPracticeMode ? "본실험" : "연습"} 모드로 전환 (Tab키)',
@@ -405,12 +511,30 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
           width: MediaQuery.of(context).size.width * 0.01,
         ),
         Text(
-          '시각 추정 과제 - 시각적 양식 / ${isPracticeMode ? '연습 시행' : '본 실험 시행'}',
+          '시각 추정 과제 - ${isPracticeMode ? '연습' : '본실험'}',
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
+        const Spacer(),
+        // 녹음 상태 표시
+        if (_isRecording)
+          const Row(
+            children: [
+              Icon(
+                Icons.mic,
+                color: Colors.red,
+                size: 20,
+              ),
+              SizedBox(width: 5),
+              Text(
+                "녹음 중",
+                style: TextStyle(color: Colors.red),
+              ),
+              SizedBox(width: 10),
+            ],
+          ),
       ],
     );
   }
