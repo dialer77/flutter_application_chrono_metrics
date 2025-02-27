@@ -501,6 +501,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
                   onSpacePressed();
                 } else {
                   FocusScope.of(context).requestFocus(focusNode);
+                  onSpacePressed();
                 }
               },
               style: ElevatedButton.styleFrom(

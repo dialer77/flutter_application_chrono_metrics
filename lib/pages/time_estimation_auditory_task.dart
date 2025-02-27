@@ -571,6 +571,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
                   onSpacePressed();
                 } else {
                   FocusScope.of(context).requestFocus(focusNode);
+                  onSpacePressed();
                 }
               },
               style: ElevatedButton.styleFrom(
