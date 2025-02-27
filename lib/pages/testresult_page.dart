@@ -23,7 +23,7 @@ class _TestResultPageState extends State<TestResultPage> {
   AppTestType _selectedTestType = AppTestType.timeEstimationAuditory;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _userNumberController = TextEditingController();
-
+  List<String> testResultList = [];
   @override
   void initState() {
     super.initState();
@@ -75,6 +75,8 @@ class _TestResultPageState extends State<TestResultPage> {
                                         onTap: () {
                                           setState(() {
                                             _selectedTestType = AppTestType.reaction;
+                                            final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+                                            testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.reaction, userInfo);
                                           });
                                         },
                                         child: Container(
@@ -104,6 +106,8 @@ class _TestResultPageState extends State<TestResultPage> {
                                         onTap: () {
                                           setState(() {
                                             _selectedTestType = AppTestType.timeGeneration;
+                                            final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+                                            testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeGeneration, userInfo);
                                           });
                                         },
                                         child: Container(
@@ -133,6 +137,8 @@ class _TestResultPageState extends State<TestResultPage> {
                                         onTap: () {
                                           setState(() {
                                             _selectedTestType = AppTestType.timeEstimationVisual;
+                                            final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+                                            testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeEstimationVisual, userInfo);
                                           });
                                         },
                                         child: Container(
@@ -162,6 +168,8 @@ class _TestResultPageState extends State<TestResultPage> {
                                         onTap: () {
                                           setState(() {
                                             _selectedTestType = AppTestType.timeEstimationAuditory;
+                                            final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+                                            testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeEstimationAuditory, userInfo);
                                           });
                                         },
                                         child: Container(
@@ -419,7 +427,7 @@ class _TestResultPageState extends State<TestResultPage> {
   Widget practiceResult() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
     final practiceResultTimeGeneration = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
-      '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}',
+      '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}/practice_result.csv',
       userInfo!,
       true,
     );
@@ -438,20 +446,20 @@ class _TestResultPageState extends State<TestResultPage> {
                       result.testTime.toString(),
                     )),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.08,
+                  width: MediaQuery.of(context).size.width * 0.06,
                   child: const Text('생성시간 : '),
                 ),
                 SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.1,
+                    width: MediaQuery.of(context).size.width * 0.06,
                     child: Text(
                       '${result.targetTime}ms',
                     )),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.1,
-                  child: const Text('사용자추정시간 : '),
+                  width: MediaQuery.of(context).size.width * 0.06,
+                  child: const Text('추정시간 : '),
                 ),
                 SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.1,
+                    width: MediaQuery.of(context).size.width * 0.06,
                     child: Text(
                       '${result.elapsedTime}ms',
                     )),
@@ -463,7 +471,6 @@ class _TestResultPageState extends State<TestResultPage> {
     );
   }
 
-  List<String> testResultList = [];
   Widget testResult() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
     String path = '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}';
@@ -528,23 +535,23 @@ class _TestResultPageState extends State<TestResultPage> {
             final rowWidget = Row(
               children: [
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.08,
+                  width: MediaQuery.of(context).size.width * 0.06,
                   child: Text('${(index ~/ testResult.taskCount + 1).toStringAsFixed(0)} - ${((index % testResult.taskCount).toInt() + 1).toStringAsFixed(0)}'),
                 ),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.08,
+                  width: MediaQuery.of(context).size.width * 0.06,
                   child: const Text('생성시간 : '),
                 ),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.1,
+                  width: MediaQuery.of(context).size.width * 0.06,
                   child: Text('${data.targetTime}ms'),
                 ),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.1,
-                  child: const Text('사용자추정시간 : '),
+                  width: MediaQuery.of(context).size.width * 0.06,
+                  child: const Text('추정시간 : '),
                 ),
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.1,
+                  width: MediaQuery.of(context).size.width * 0.06,
                   child: Text('${data.elapsedTime}ms'),
                 ),
               ],
