@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_chrono_metrics/commons/common_util.dart';
 import 'package:flutter_application_chrono_metrics/commons/enum_defines.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_reaction/testresult_reaction.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_auditory/testresult_time_estimation_auditory.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_visual/testresult_time_estimation_visual.dart';
+import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testresult_time_generation.dart';
 import 'package:flutter_application_chrono_metrics/datas/user_infomation.dart';
 import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
 import 'package:intl/intl.dart';
@@ -260,9 +263,9 @@ class _TestResultPageState extends State<TestResultPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '연습 과제',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Divider(),
             reactionResult(
@@ -271,52 +274,6 @@ class _TestResultPageState extends State<TestResultPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTimeGenerationContent() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Time Generation Test Results',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-          Text('Target time: XX seconds'),
-          Text('Generated time: XX seconds'),
-          Text('Accuracy: XX%'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeEstimationVisualContent() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Visual Time Estimation Test Results',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-          Text('Target duration: XX seconds'),
-          Text('Estimated duration: XX seconds'),
-          Text('Estimation error: XX%'),
-        ],
       ),
     );
   }
@@ -415,26 +372,449 @@ class _TestResultPageState extends State<TestResultPage> {
     );
   }
 
-  Widget _buildTimeEstimationAuditoryContent() {
+  Widget _buildTimeGenerationContent() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Auditory Time Estimation Test Results',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '연습 과제',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(),
+                  practiceResult(),
+                ],
+              ),
+            ),
           ),
-          SizedBox(height: 16),
-          Text('Target duration: XX seconds'),
-          Text('Estimated duration: XX seconds'),
-          Text('Estimation error: XX%'),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const Text(
+                    '본 실험 과제',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(),
+                  testResult(),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget practiceResult() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    final practiceResultTimeGeneration = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
+      '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}',
+      userInfo!,
+      true,
+    );
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.9,
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Column(
+        children: practiceResultTimeGeneration.testDataList.map((result) {
+          return SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.15,
+                    child: Text(
+                      result.testTime.toString(),
+                    )),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: const Text('생성시간 : '),
+                ),
+                SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.1,
+                    child: Text(
+                      '${result.targetTime}ms',
+                    )),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: const Text('사용자추정시간 : '),
+                ),
+                SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.1,
+                    child: Text(
+                      '${result.elapsedTime}ms',
+                    )),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  List<String> testResultList = [];
+  Widget testResult() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    String path = '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}';
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.9,
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Column(
+        children: testResultList.map((result) {
+          final resultSplit = result.split('_');
+
+          final String dateStr = resultSplit[1];
+          final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
+              '${dateStr.substring(4, 6)}-' // month
+              '${dateStr.substring(6, 8)} ' // day
+              '${dateStr.substring(8, 10)}:' // hour
+              '${dateStr.substring(10, 12)}:' // minute
+              '${dateStr.substring(12, 14)}' // second
+              );
+
+          final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
+          return ExpansionTile(
+            title: Text(formattedDate),
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.9,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: (() {
+                      final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
+                        '$path/$result',
+                        userInfo!,
+                        false,
+                      );
+
+                      var list = [
+                        resultItem(testResult),
+                      ];
+                      return list;
+                    })(),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget resultItem(TestResultTimeGeneration testResult) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...testResult.testDataList.asMap().entries.map(
+          (entry) {
+            final index = entry.key;
+            final data = entry.value;
+
+            // 현재 항목의 Row 위젯
+            final rowWidget = Row(
+              children: [
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: Text('${(index ~/ testResult.taskCount + 1).toStringAsFixed(0)} - ${((index % testResult.taskCount).toInt() + 1).toStringAsFixed(0)}'),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: const Text('생성시간 : '),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: Text('${data.targetTime}ms'),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: const Text('사용자추정시간 : '),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: Text('${data.elapsedTime}ms'),
+                ),
+              ],
+            );
+
+            // 세트의 마지막 항목인 경우 (나머지가 taskCount-1인 경우)
+            // 또는 전체 리스트의 마지막 항목인 경우
+            if ((index % testResult.taskCount) == testResult.taskCount - 1 && index < testResult.testDataList.length - 1) {
+              return Column(
+                children: [
+                  rowWidget,
+                  const Divider(),
+                ],
+              );
+            } else {
+              return rowWidget;
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeEstimationVisualContent() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            testResultViewTimeEstimationVisual(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget testResultViewTimeEstimationVisual() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    String path = '${Directory.current.path}/Data/TimeEstimationVisual/${userInfo?.userNumber}_${userInfo?.name}';
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.9,
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Column(
+        children: testResultList.map((result) {
+          final resultSplit = result.split('_');
+
+          final String dateStr = resultSplit[1];
+          final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-' // year
+              '${dateStr.substring(4, 6)}-' // month
+              '${dateStr.substring(6, 8)} ' // day
+              '${dateStr.substring(8, 10)}:' // hour
+              '${dateStr.substring(10, 12)}:' // minute
+              '${dateStr.substring(12, 14)}' // second
+              );
+
+          final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
+          return ExpansionTile(
+            title: Text(formattedDate),
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.9,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: (() {
+                      final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeEstimationVisual(
+                        '$path/$result',
+                        userInfo!,
+                      );
+
+                      var list = [
+                        resultItemTimeEstimationVisual(testResult),
+                      ];
+                      return list;
+                    })(),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget resultItemTimeEstimationVisual(TestResultTimeEstimationVisual testResult) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...testResult.testDataList.asMap().entries.map(
+          (entry) {
+            final index = entry.key;
+            final data = entry.value;
+
+            // 현재 항목의 Row 위젯
+            final rowWidget = Row(
+              children: [
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: Text('${(index ~/ testResult.taskCount + 1).toStringAsFixed(0)} - ${((index % testResult.taskCount).toInt() + 1).toStringAsFixed(0)}'),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: const Text('생성시간 : '),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: Text('${data.targetTime}초'),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: const Text('사용자추정시간 : '),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: Text('${data.elapsedTime}초'),
+                ),
+              ],
+            );
+
+            // 세트의 마지막 항목인 경우 (나머지가 taskCount-1인 경우)
+            // 또는 전체 리스트의 마지막 항목인 경우
+            if ((index % testResult.taskCount) == testResult.taskCount - 1 && index < testResult.testDataList.length - 1) {
+              return Column(
+                children: [
+                  rowWidget,
+                  const Divider(),
+                ],
+              );
+            } else {
+              return rowWidget;
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeEstimationAuditoryContent() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            testResultViewTimeEstimationVisual(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget testResultView() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
+    String path = '${Directory.current.path}/Data/TimeEstimationAuditory/${userInfo?.userNumber}_${userInfo?.name}';
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.9,
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Column(
+        children: testResultList.map((result) {
+          final resultSplit = result.split('_');
+
+          final String dateStr = resultSplit[1];
+          final DateTime resultTime = DateTime.parse('${dateStr.substring(0, 4)}-'
+              '${dateStr.substring(4, 6)}-'
+              '${dateStr.substring(6, 8)} '
+              '${dateStr.substring(8, 10)}:'
+              '${dateStr.substring(10, 12)}:'
+              '${dateStr.substring(12, 14)}');
+
+          final String formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(resultTime);
+          return ExpansionTile(
+            title: Text(formattedDate),
+            children: [
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.9,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: (() {
+                      final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeEstimationAuditory(
+                        '$path/$result',
+                        userInfo!,
+                      );
+
+                      var list = [
+                        resultItemTimeEstimationAuditory(testResult),
+                      ];
+                      return list;
+                    })(),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget resultItemTimeEstimationAuditory(TestResultTimeEstimationAuditory testResult) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...testResult.testDataList.asMap().entries.map(
+          (entry) {
+            final index = entry.key;
+            final data = entry.value;
+
+            final rowWidget = Row(
+              children: [
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: Text('${(index ~/ testResult.taskCount + 1).toStringAsFixed(0)} - ${((index % testResult.taskCount).toInt() + 1).toStringAsFixed(0)}'),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.08,
+                  child: const Text('생성시간 : '),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: Text('${data.targetTime}초'),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: const Text('사용자추정시간 : '),
+                ),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.1,
+                  child: Text('${data.elapsedTime}초'),
+                ),
+              ],
+            );
+
+            if ((index % testResult.taskCount) == testResult.taskCount - 1 && index < testResult.testDataList.length - 1) {
+              return Column(
+                children: [
+                  rowWidget,
+                  const Divider(),
+                ],
+              );
+            } else {
+              return rowWidget;
+            }
+          },
+        ),
+      ],
     );
   }
 }
