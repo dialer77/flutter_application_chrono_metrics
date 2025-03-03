@@ -180,21 +180,31 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
       }
     });
 
+    // 타겟 표시 후 측정 시작을 순차적으로 처리
+    _handleTimingSequence();
+  }
+
+  // 타겟 표시 후 측정 시작을 순차적으로 처리
+  Future<void> _handleTimingSequence() async {
     // 2초 후에 + 표시로 변경
-    Future.delayed(const Duration(seconds: 1), () {
+    await Future.delayed(const Duration(milliseconds: 2000), () {
       if (mounted && isStarted) {
         setState(() {
           isShowingTarget = false;
         });
       }
     });
-  }
 
-  void startMeasuring() {
-    setState(() {
-      isMeasuring = true;
-      startTime = DateTime.now();
-    });
+    // 추가 2초 딜레이
+    await Future.delayed(const Duration(seconds: 2));
+
+    // 첫 번째 딜레이와 추가 딜레이가 완료된 후에만 실행
+    if (!isShowingTarget && !isMeasuring && mounted) {
+      setState(() {
+        isMeasuring = true;
+        startTime = DateTime.now();
+      });
+    }
   }
 
   void endTest() {
@@ -257,24 +267,8 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   void onSpacePressed() {
     if (!isStarted) {
       startTest();
-    } else if (!isShowingTarget && !isMeasuring) {
-      startMeasuring();
     } else if (isMeasuring) {
       endTest();
-    }
-  }
-
-  String getDisplayText() {
-    if (!isStarted) {
-      return '경과 시간: ${elapsedMilliseconds}ms\n목표 시간: ${targetSeconds * 1000}ms';
-    } else if (isStarted) {
-      if (isShowingTarget) {
-        return '$targetSeconds초';
-      } else {
-        return isMeasuring ? '●' : '+'; // 측정 중일 때는 검정 원, 아니면 +
-      }
-    } else {
-      return isPracticeMode ? '연습 모드' : '본실험 모드';
     }
   }
 
@@ -385,11 +379,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                         ],
                         (() {
                           if (isShowingTarget || !isStarted) {
-                            return Text(
-                              getDisplayText(),
-                              style: getDisplayStyle(), // 스타일 적용
-                              textAlign: TextAlign.center,
-                            );
+                            return getDisplayTestWidget();
                           } else {
                             return Icon(
                               isMeasuring ? Icons.circle : Icons.add,
@@ -400,9 +390,9 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                         }()),
                         if (isStarted == false) ...[
                           const SizedBox(height: 20),
-                          const Text(
-                            '스페이스바를 눌러 다시 시작',
-                            style: TextStyle(
+                          Text(
+                            isPracticeMode ? '추가적인 연습을 진행시에는 스페이스바를 눌러 다시 시작해주세요.' : '스페이스바를 눌러 다음 검사를 시작해주세요.',
+                            style: const TextStyle(
                               fontSize: 16,
                               color: Colors.grey,
                             ),
@@ -428,14 +418,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          '시작하려면 스페이스를 눌러주세요',
-                          style: TextStyle(
-                            color: isPracticeMode ? Colors.blue : Colors.purple,
-                            fontSize: 16,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        testGuideText(),
                       ],
                     ),
             ),
@@ -467,6 +450,115 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget getDisplayTestWidget() {
+    if (!isStarted) {
+      // 화면을 두 부분으로 나누어 표시
+      String upperText = '경과 시간: ${elapsedMilliseconds}ms\n'
+          '목표 시간: ${targetSeconds * 1000}ms';
+
+      String lowerText = '충분히 연습하셨으면 본 검사를 진행하겠습니다.\n'
+          'Tab 키를 눌러 본 검사모드로 전환해주세요';
+
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            upperText,
+            style: getDisplayStyle(), // 기존 스타일 적용
+            textAlign: TextAlign.center,
+          ),
+          if (isPracticeMode) ...[
+            const SizedBox(height: 20), // 두 텍스트 사이 간격
+            Text(
+              lowerText,
+              style: const TextStyle(
+                fontSize: 16, // 원하는 스타일로 변경
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      );
+    } else if (isStarted) {
+      String displayText = '';
+      if (isShowingTarget) {
+        displayText = '$targetSeconds초';
+      } else {
+        displayText = isMeasuring ? '●' : '+'; // 측정 중일 때는 검정 원, 아니면 +
+      }
+
+      return Text(
+        displayText,
+        style: getDisplayStyle(), // 스타일 적용
+        textAlign: TextAlign.center,
+      );
+    } else {
+      String displayText = isPracticeMode ? '연습 모드' : '본실험 모드';
+
+      return Text(
+        displayText,
+        style: getDisplayStyle(), // 스타일 적용
+        textAlign: TextAlign.center,
+      );
+    }
+  }
+
+  Widget testGuideText() {
+    TextStyle textStyle = TextStyle(
+      color: isPracticeMode ? Colors.blue : Colors.purple,
+      fontSize: 20,
+    );
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        RichText(
+          textAlign: TextAlign.left,
+          text: TextSpan(
+            style: textStyle,
+            children: [
+              const TextSpan(
+                text: '지금부터는 마음 속으로 시간을 세어보실 건데요.\n',
+              ),
+              const TextSpan(
+                text: '\'1초\'',
+                style: TextStyle(color: Colors.black),
+              ),
+              const TextSpan(
+                text: ' 또는 ',
+              ),
+              const TextSpan(
+                text: '\'2초\'',
+                style: TextStyle(color: Colors.black),
+              ),
+              const TextSpan(
+                text: ' 이렇게 마음 속으로 셀 시간이 나타납니다.\n'
+                    '그런 후,\n',
+              ),
+              const WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Icon(Icons.add, size: 24, color: Colors.black),
+              ),
+              const TextSpan(
+                text: '를 응시하고 있다가 ',
+              ),
+              const WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Icon(Icons.circle, size: 24, color: Colors.black),
+              ),
+              TextSpan(
+                text: '이 나타나면\n'
+                    '해당 시간이 지난 후에 스페이스바를\n'
+                    '${isPracticeMode ? "눌러주시면 됩니다. 한 번 연습해보실께요." : "눌러주시면 됩니다.\n이제 본 검사를 시작하겠습니다."}',
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

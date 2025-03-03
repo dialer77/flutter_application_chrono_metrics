@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_chrono_metrics/commons/common_util.dart';
 import 'package:flutter_application_chrono_metrics/commons/enum_defines.dart';
-import 'package:flutter_application_chrono_metrics/datas/data_reaction/testresult_reaction.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_auditory/testresult_time_estimation_auditory.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_time_estimation_visual/testresult_time_estimation_visual.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_time_generation/testresult_time_generation.dart';
@@ -11,6 +11,7 @@ import 'package:flutter_application_chrono_metrics/datas/user_infomation.dart';
 import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:just_audio/just_audio.dart';
 
 class TestResultPage extends StatefulWidget {
   const TestResultPage({super.key});
@@ -24,9 +25,44 @@ class _TestResultPageState extends State<TestResultPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _userNumberController = TextEditingController();
   List<String> testResultList = [];
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String _currentPlayingPath = '';
+  bool _isPlaying = false;
+  Duration _currentPosition = Duration.zero;
+  Duration _totalDuration = Duration.zero;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
+
   @override
   void initState() {
     super.initState();
+
+    // 플레이어 상태 리스너 설정
+    _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
+      setState(() {
+        _isPlaying = state.playing;
+        // 재생이 끝나면 상태 초기화
+        if (state.processingState == ProcessingState.completed) {
+          _currentPosition = Duration.zero;
+          _isPlaying = false;
+        }
+      });
+    });
+
+    // 현재 재생 위치 리스너 설정
+    _positionSubscription = _audioPlayer.positionStream.listen((position) {
+      setState(() {
+        _currentPosition = position;
+      });
+    });
+
+    // 총 재생 시간 리스너 설정
+    _durationSubscription = _audioPlayer.durationStream.listen((duration) {
+      setState(() {
+        _totalDuration = duration ?? Duration.zero;
+      });
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await CommonUtil.showUserInfoDialog(
@@ -35,6 +71,23 @@ class _TestResultPageState extends State<TestResultPage> {
         userNumberController: _userNumberController,
       );
     });
+  }
+
+  @override
+  void dispose() {
+    _playerStateSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  // 시간 형식 변환 헬퍼 함수
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String minutes = twoDigits(duration.inMinutes.remainder(60));
+    String seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   @override
@@ -352,13 +405,83 @@ class _TestResultPageState extends State<TestResultPage> {
                                 if (audioPath.isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 16.0),
-                                    child: OutlinedButton.icon(
-                                      icon: const Icon(Icons.play_arrow),
-                                      label: const Text('녹음 재생'),
-                                      onPressed: () {
-                                        // 오디오 파일 재생 로직
-                                        print('오디오 파일 재생: $audioPath');
-                                      },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 재생 컨트롤
+                                        Row(
+                                          children: [
+                                            // 재생/일시정지 버튼
+                                            IconButton(
+                                              icon: Icon(
+                                                _isPlaying && _currentPlayingPath == audioPath ? Icons.pause : Icons.play_arrow,
+                                                color: Colors.blue,
+                                              ),
+                                              onPressed: () async {
+                                                try {
+                                                  if (_currentPlayingPath != audioPath) {
+                                                    // 새 오디오 파일 재생
+                                                    await _audioPlayer.setFilePath(audioPath);
+                                                    _currentPlayingPath = audioPath;
+                                                    await _audioPlayer.play();
+                                                  } else if (_isPlaying) {
+                                                    // 재생 중인 오디오 일시정지
+                                                    await _audioPlayer.pause();
+                                                  } else {
+                                                    // 일시정지된 오디오 재개
+                                                    await _audioPlayer.play();
+                                                  }
+                                                } catch (e) {
+                                                  print('오디오 재생 오류: $e');
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('오디오 재생 실패: $e')),
+                                                  );
+                                                }
+                                              },
+                                            ),
+
+                                            // 현재 시간 표시
+                                            Text(
+                                              _currentPlayingPath == audioPath ? _formatDuration(_currentPosition) : '00:00',
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+
+                                            // 진행 슬라이더
+                                            Expanded(
+                                              child: Slider(
+                                                value: _currentPlayingPath == audioPath ? _currentPosition.inMilliseconds.toDouble() : 0,
+                                                max: _currentPlayingPath == audioPath ? _totalDuration.inMilliseconds.toDouble() : 1,
+                                                min: 0,
+                                                onChanged: (value) {
+                                                  if (_currentPlayingPath == audioPath) {
+                                                    _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                                                  }
+                                                },
+                                              ),
+                                            ),
+
+                                            // 총 시간 표시
+                                            Text(
+                                              _currentPlayingPath == audioPath ? _formatDuration(_totalDuration) : '00:00',
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+
+                                        // 현재 재생 중인 파일 표시
+                                        if (_currentPlayingPath == audioPath && _isPlaying)
+                                          const Padding(
+                                            padding: EdgeInsets.only(top: 4.0, left: 12.0),
+                                            child: Text(
+                                              '현재 재생 중...',
+                                              style: TextStyle(
+                                                color: Colors.green,
+                                                fontSize: 12,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                               ],

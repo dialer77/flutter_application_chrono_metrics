@@ -185,13 +185,13 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('사각형이 이동한 시간을 초 단위로 추정해주세요.'),
+              const Text('사각형이 이동한 시간은 몇 초인가요?'),
               const SizedBox(height: 10),
               TextField(
                 controller: _estimatedTimeController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: '추정한 시간 (초)',
+                  labelText: '이동한 시간 (초)',
                   border: OutlineInputBorder(),
                 ),
                 autofocus: true,

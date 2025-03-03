@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_chrono_metrics/commons/common_util.dart';
 import 'package:flutter_application_chrono_metrics/commons/enum_defines.dart';
+import 'package:flutter_application_chrono_metrics/commons/widgets/icon_spacebar.dart';
 import 'package:flutter_application_chrono_metrics/commons/widgets/record_drawer.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_reaction/testdata_reaction.dart';
 import 'package:flutter_application_chrono_metrics/datas/data_reaction/testresult_reaction.dart';
@@ -344,7 +345,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     );
   }
 
-  Text testGuideText(double fontSize, Color color) {
+  Widget testGuideText(double fontSize, Color color) {
     TextStyle textStyle = TextStyle(
       color: color,
       fontSize: fontSize,
@@ -354,12 +355,65 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     switch (testState) {
       case TestState.finished:
         if (isAudioMode) {
-          return Text('테스트 완료!\n스페이스바를 눌러 재시작', textAlign: TextAlign.center, style: textStyle);
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('테스트 완료!\n[초기 메뉴화면]으로 돌아가시겠습니까?', textAlign: TextAlign.center, style: textStyle),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('← 돌아가기',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    )),
+              ),
+            ],
+          );
         } else {
           return Text('시각 모드 테스트 완료!\n스페이스바를 눌러 청각 측정 진행', textAlign: TextAlign.center, style: textStyle);
         }
       case TestState.idle:
-        return Text('준비되었습니다!\n스페이스바를 눌러 테스트 시작해주세요', textAlign: TextAlign.center, style: textStyle);
+        return Center(
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.5, // Adjust width as needed
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('준비가 되셨나요?!', style: textStyle),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    if (isAudioMode) ...[
+                      Text('띵 소리가 들리자마자 스페이스바', style: textStyle),
+                    ] else ...[
+                      Text('별', style: textStyle),
+                      Icon(Icons.star, color: Colors.red, size: fontSize * 1.2),
+                      Text('이 보이자마자 스페이스바', style: textStyle),
+                    ],
+                    IconSpacebar(fontSize: fontSize, color: color),
+                    Text('를 누르세요.', style: textStyle),
+                  ],
+                ),
+                SizedBox(height: fontSize),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Text('자, 시작하려면 스페이스바', style: textStyle),
+                    IconSpacebar(fontSize: fontSize, color: color),
+                    Text('를 누르세요', style: textStyle),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
       default:
         return Text('', textAlign: TextAlign.center, style: textStyle);
     }
