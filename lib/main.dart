@@ -18,14 +18,24 @@ void main() async {
     WindowManager.instance.setTitle('Chrono Metrics');
   }
 
-  // 앱 종료 리스너 추가
-  SystemChannels.lifecycle.setMessageHandler((message) async {
-    if (message == AppLifecycleState.detached.toString()) {
+  // WidgetsBinding.instance에 AppLifecycleListener 추가
+  final lifecycleListener = AppLifecycleListener(
+    onDetach: () async {
       // 앱이 종료될 때 정리 작업 수행
+      print('앱 종료: cleanup 실행');
       await AudioRecordingManager().cleanup();
-    }
-    return null;
-  });
+    },
+    onHide: () async {
+      // 앱이 숨겨질 때도 정리 작업 수행 (일부 플랫폼에서 유용)
+      print('앱 숨김: cleanup 실행');
+      await AudioRecordingManager().cleanup();
+    },
+    onPause: () async {
+      // 앱이 일시 중지될 때도 정리 작업 수행
+      print('앱 일시 중지: cleanup 실행');
+      await AudioRecordingManager().cleanup();
+    },
+  );
 
   runApp(
     MultiProvider(
@@ -34,13 +44,15 @@ void main() async {
           create: (context) => UserStateProvider(),
         ),
       ],
-      child: const MyApp(),
+      child: MyApp(lifecycleListener: lifecycleListener),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final AppLifecycleListener lifecycleListener;
+
+  const MyApp({super.key, required this.lifecycleListener});
 
   // This widget is the root of your application.
   @override

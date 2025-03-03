@@ -116,12 +116,12 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
     final dateStr = DateFormat('yyyyMMddHHmmss').format(dateTime);
 
     // 파일 경로 직접 생성
-    final directory = Directory('${Directory.current.path}/Data/TimeEstimationVisual/${userInfo.userNumber}_${userInfo.name}/recordings');
+    final directory = Directory('${Directory.current.path}\\Data\\TimeEstimationVisual\\${userInfo.userNumber}_${userInfo.name}\\recordings');
     if (!directory.existsSync()) {
       directory.createSync(recursive: true);
     }
 
-    final filePath = '${directory.path}/TEV_${userInfo.userNumber}_${userInfo.name}_$dateStr.m4a';
+    final filePath = '${directory.path}\\TEV_${userInfo.userNumber}_${userInfo.name}_$dateStr.m4a';
 
     // 생성된 파일 경로로 녹음 시작
     final success = await AudioRecordingManager().startRecording(filePath);
@@ -320,7 +320,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
 
   RecordDrawer getRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeEstimationVisual/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeEstimationVisual\\${userInfo?.userNumber}_${userInfo?.name}';
     return RecordDrawer(
       path: path,
       record: Scrollbar(
@@ -353,7 +353,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
   final ScrollController _scrollController = ScrollController();
   Widget testResultView() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeEstimationVisual/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeEstimationVisual\\${userInfo?.userNumber}_${userInfo?.name}';
     return Container(
       width: MediaQuery.of(context).size.width * 0.9,
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -382,7 +382,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: (() {
                       final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeEstimationVisual(
-                        '$path/$result',
+                        '$path\\$result',
                         userInfo!,
                       );
 

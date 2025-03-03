@@ -71,7 +71,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
 
       final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
       practiceResultTimeGeneration = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
-        '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}/practice_result.csv',
+        '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}\\practice_result.csv',
         userInfo!,
         true,
       );
@@ -98,7 +98,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
     final dateStr = DateFormat('yyyyMMddHHmmss').format(dateTime);
 
     // 파일 경로 직접 생성
-    final directory = Directory('${Directory.current.path}/Data/TimeGeneration/${userInfo.userNumber}_${userInfo.name}/recordings');
+    final directory = Directory('${Directory.current.path}\\Data\\TimeGeneration\\${userInfo.userNumber}_${userInfo.name}\\recordings');
     if (!directory.existsSync()) {
       directory.createSync(recursive: true);
     }
@@ -564,7 +564,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
 
   RecordDrawer getRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}';
     return RecordDrawer(
       path: path,
       record: Scrollbar(
@@ -639,7 +639,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   List<String> testResultList = [];
   Widget testResult() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}';
     return Container(
       width: MediaQuery.of(context).size.width * 0.9,
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -668,7 +668,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: (() {
                       final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
-                        '$path/$result',
+                        '$path\\$result',
                         userInfo!,
                         false,
                       );

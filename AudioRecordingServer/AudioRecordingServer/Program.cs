@@ -5,21 +5,37 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using NAudio.Wave;
+using System.Timers;
 
 class AudioRecordingServer
 {
-    private static WasapiLoopbackCapture loopbackCapture;
-    private static WaveInEvent microphoneCapture;
-    private static WaveFileWriter systemAudioWriter;
-    private static WaveFileWriter microphoneWriter;
-    private static string tempSystemAudioFile;
-    private static string tempMicrophoneFile;
-    private static string currentFilePath;
+    private static WasapiLoopbackCapture? loopbackCapture;
+    private static WaveInEvent? microphoneCapture;
+    private static WaveFileWriter? systemAudioWriter;
+    private static WaveFileWriter? microphoneWriter;
+    private static string? tempSystemAudioFile;
+    private static string? tempMicrophoneFile;
+    private static string? currentFilePath;
     private static bool isRecording = false;
+    private static DateTime recordingStartTime;
+    private static readonly object systemWriterLock = new object();
+    private static readonly object microphoneWriterLock = new object();
+    private static System.Timers.Timer silenceTimer;
+
+    // 이벤트 핸들러 참조 저장
+    private static EventHandler<WaveInEventArgs> loopbackDataAvailableHandler;
+    private static EventHandler<WaveInEventArgs> microphoneDataAvailableHandler;
+    private static EventHandler<StoppedEventArgs> loopbackRecordingStoppedHandler;
+    private static EventHandler<StoppedEventArgs> microphoneRecordingStoppedHandler;
+
+    // 클래스 변수 추가
+    private static bool isFirstDataReceived = false;
+    private static DateTime recordingActualStartTime;
+    private static int initialBufferSize = 16000; // 약 0.1초 분량의 초기 버퍼 크기 (추정치)
 
     static void Main()
     {
-        TcpListener server = null;
+        TcpListener? server = null;
         try
         {
             // 로컬 IP와 포트 설정
@@ -87,17 +103,70 @@ class AudioRecordingServer
         tempMicrophoneFile = Path.Combine(tempDir, "microphone.wav");
         currentFilePath = filePath;
 
+        recordingStartTime = DateTime.Now;
+
+        // 기존 이벤트 핸들러 제거
+        if (loopbackDataAvailableHandler != null)
+            loopbackCapture.DataAvailable -= loopbackDataAvailableHandler;
+        if (microphoneDataAvailableHandler != null)
+            microphoneCapture.DataAvailable -= microphoneDataAvailableHandler;
+        if (loopbackRecordingStoppedHandler != null)
+            loopbackCapture.RecordingStopped -= loopbackRecordingStoppedHandler;
+        if (microphoneRecordingStoppedHandler != null)
+            microphoneCapture.RecordingStopped -= microphoneRecordingStoppedHandler;
+
+        // 디바이스 재초기화
+        loopbackCapture.Dispose();
+        microphoneCapture.Dispose();
+        loopbackCapture = new WasapiLoopbackCapture();
+        microphoneCapture = new WaveInEvent();
+        microphoneCapture.DeviceNumber = 0; // 기본 마이크
+
         isRecording = true;
 
         // 시스템 오디오 설정
         systemAudioWriter = new WaveFileWriter(tempSystemAudioFile, loopbackCapture.WaveFormat);
-        loopbackCapture.DataAvailable += (s, e) =>
+
+        // 이벤트 핸들러 수정
+        loopbackDataAvailableHandler = (s, e) =>
         {
             if (systemAudioWriter != null && isRecording)
             {
                 try
                 {
-                    systemAudioWriter.Write(e.Buffer, 0, e.BytesRecorded);
+                    lock (systemWriterLock)
+                    {
+                        // 첫 데이터 수신 시 시간 기록
+                        if (!isFirstDataReceived && e.BytesRecorded > 0)
+                        {
+                            isFirstDataReceived = true;
+                            recordingActualStartTime = DateTime.Now;
+                            TimeSpan delay = recordingActualStartTime - recordingStartTime;
+                            Console.WriteLine($"첫 오디오 데이터 수신됨. 녹음 시작 후 {delay.TotalMilliseconds}ms 지연");
+
+                            // 초기 빈 버퍼 계산 - 실제 지연 시간에 맞게 조정
+                            // 초기 빈 버퍼 생성 (필요한 경우)
+                            if (delay.TotalMilliseconds > 10) // 10ms 이상 지연이 있는 경우만
+                            {
+                                int bytesPerMs = loopbackCapture.WaveFormat.AverageBytesPerSecond / 1000;
+                                int initialBytes = (int)(delay.TotalMilliseconds * bytesPerMs);
+
+                                // 초기 빈 버퍼 생성
+                                byte[] initialBuffer = new byte[initialBytes];
+                                for (int i = 0; i < initialBytes; i++)
+                                {
+                                    initialBuffer[i] = 0; // 무음으로 채움
+                                }
+
+                                // 초기 버퍼 쓰기
+                                systemAudioWriter.Write(initialBuffer, 0, initialBuffer.Length);
+                                Console.WriteLine($"초기 무음 버퍼 추가: {initialBytes} 바이트");
+                            }
+                        }
+
+                        // 일반 데이터 쓰기
+                        systemAudioWriter.Write(e.Buffer, 0, e.BytesRecorded == 0 ? initialBufferSize : e.BytesRecorded);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -105,16 +174,20 @@ class AudioRecordingServer
                 }
             }
         };
+        loopbackCapture.DataAvailable += loopbackDataAvailableHandler;
 
         // 마이크 오디오 설정
         microphoneWriter = new WaveFileWriter(tempMicrophoneFile, microphoneCapture.WaveFormat);
-        microphoneCapture.DataAvailable += (s, e) =>
+        microphoneDataAvailableHandler = (s, e) =>
         {
             if (microphoneWriter != null && isRecording)
             {
                 try
                 {
-                    microphoneWriter.Write(e.Buffer, 0, e.BytesRecorded);
+                    lock (microphoneWriterLock)
+                    {
+                        microphoneWriter.Write(e.Buffer, 0, e.BytesRecorded);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -122,10 +195,41 @@ class AudioRecordingServer
                 }
             }
         };
+        microphoneCapture.DataAvailable += microphoneDataAvailableHandler;
+
+        // 녹음이 끝날 때 이벤트 처리
+        loopbackRecordingStoppedHandler = (s, e) =>
+        {
+            Console.WriteLine("시스템 오디오 녹음이 중지되었습니다.");
+        };
+        loopbackCapture.RecordingStopped += loopbackRecordingStoppedHandler;
+
+        microphoneRecordingStoppedHandler = (s, e) =>
+        {
+            Console.WriteLine("마이크 오디오 녹음이 중지되었습니다.");
+        };
+        microphoneCapture.RecordingStopped += microphoneRecordingStoppedHandler;
 
         // 녹음 시작
-        loopbackCapture.StartRecording();
-        microphoneCapture.StartRecording();
+        try
+        {
+            loopbackCapture.StartRecording();
+            Console.WriteLine("시스템 오디오 녹음이 시작되었습니다.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"시스템 오디오 녹음 시작 중 오류: {ex.Message}");
+        }
+
+        try
+        {
+            microphoneCapture.StartRecording();
+            Console.WriteLine("마이크 오디오 녹음이 시작되었습니다.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"마이크 오디오 녹음 시작 중 오류: {ex.Message}");
+        }
 
         Console.WriteLine($"녹음 시작됨 (시스템: {tempSystemAudioFile}, 마이크: {tempMicrophoneFile})");
     }
@@ -141,17 +245,26 @@ class AudioRecordingServer
         loopbackCapture?.StopRecording();
         microphoneCapture?.StopRecording();
 
+        // 잠시 대기 (모든 이벤트가 처리될 수 있도록)
+        Thread.Sleep(500);
+
         // 파일 라이터 정리
-        if (systemAudioWriter != null)
+        lock (systemWriterLock)
         {
-            systemAudioWriter.Dispose();
-            systemAudioWriter = null;
+            if (systemAudioWriter != null)
+            {
+                systemAudioWriter.Dispose();
+                systemAudioWriter = null;
+            }
         }
 
-        if (microphoneWriter != null)
+        lock (microphoneWriterLock)
         {
-            microphoneWriter.Dispose();
-            microphoneWriter = null;
+            if (microphoneWriter != null)
+            {
+                microphoneWriter.Dispose();
+                microphoneWriter = null;
+            }
         }
 
         // 최종 파일 경로 결정
@@ -160,41 +273,91 @@ class AudioRecordingServer
 
         try
         {
-            // 두 오디오 파일을 하나로 결합
-            if (File.Exists(tempSystemAudioFile) && File.Exists(tempMicrophoneFile))
+            // 대상 디렉토리가 없으면 생성
+            string directory = Path.GetDirectoryName(targetFilePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
-                // 대상 디렉토리가 없으면 생성
-                string directory = Path.GetDirectoryName(targetFilePath);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                // 두 파일을 혼합하여 최종 파일 생성
-                MixAudioFiles(tempSystemAudioFile, tempMicrophoneFile, targetFilePath);
-
-                // 개별 파일 저장 경로 생성
-                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(targetFilePath);
-                string fileExt = Path.GetExtension(targetFilePath);
-                string filePath = Path.GetDirectoryName(targetFilePath);
-
-                string systemAudioFilePath = Path.Combine(filePath, fileNameWithoutExt + "_system" + fileExt);
-                string microphoneFilePath = Path.Combine(filePath, fileNameWithoutExt + "_mic" + fileExt);
-
-                // 개별 파일 저장 (임시 파일을 최종 위치로 복사)
-                File.Copy(tempSystemAudioFile, systemAudioFilePath, true);
-                File.Copy(tempMicrophoneFile, microphoneFilePath, true);
-
-                Console.WriteLine($"시스템 오디오 저장됨: {systemAudioFilePath}");
-                Console.WriteLine($"마이크 오디오 저장됨: {microphoneFilePath}");
-
-                // 임시 파일 삭제
-                File.Delete(tempSystemAudioFile);
-                File.Delete(tempMicrophoneFile);
-                Directory.Delete(Path.GetDirectoryName(tempSystemAudioFile), true);
-
-                Console.WriteLine($"녹음 완료: {targetFilePath}");
+                Directory.CreateDirectory(directory);
             }
+
+            // 개별 파일 저장 경로 생성
+            string fileNameWithoutExt = Path.GetFileNameWithoutExtension(targetFilePath);
+            string fileExt = Path.GetExtension(targetFilePath);
+            string filePath = Path.GetDirectoryName(targetFilePath);
+
+            string systemAudioFilePath = Path.Combine(filePath, fileNameWithoutExt + "_system" + fileExt);
+            string microphoneFilePath = Path.Combine(filePath, fileNameWithoutExt + "_mic" + fileExt);
+
+            // 파일 복사 및 저장
+            bool systemAudioSaved = false;
+
+            if (File.Exists(tempSystemAudioFile))
+            {
+                FileInfo info = new FileInfo(tempSystemAudioFile);
+                if (info.Length > 0)
+                {
+                    File.Copy(tempSystemAudioFile, systemAudioFilePath, true);
+                    File.Copy(tempSystemAudioFile, targetFilePath, true);
+                    Console.WriteLine($"시스템 오디오 저장됨: {systemAudioFilePath} (크기: {info.Length} 바이트)");
+                    systemAudioSaved = true;
+                }
+                else
+                {
+                    Console.WriteLine("시스템 오디오 파일이 비어 있습니다.");
+                }
+            }
+
+            if (File.Exists(tempMicrophoneFile))
+            {
+                FileInfo info = new FileInfo(tempMicrophoneFile);
+                if (info.Length > 0)
+                {
+                    File.Copy(tempMicrophoneFile, microphoneFilePath, true);
+                    Console.WriteLine($"마이크 오디오 저장됨: {microphoneFilePath} (크기: {info.Length} 바이트)");
+
+                    // 시스템 오디오가 없으면 마이크 오디오를 기본 파일로 사용
+                    if (!systemAudioSaved)
+                    {
+                        File.Copy(tempMicrophoneFile, targetFilePath, true);
+                        Console.WriteLine($"기본 오디오 파일로 마이크 오디오 사용됨: {targetFilePath}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("마이크 오디오 파일이 비어 있습니다.");
+                }
+            }
+
+            // 시스템 오디오와 마이크 오디오 모두 저장되지 않았다면, 빈 오디오 파일 생성
+            if (!File.Exists(targetFilePath))
+            {
+                using (var writer = new WaveFileWriter(targetFilePath, new WaveFormat(44100, 16, 2)))
+                {
+                    // 1초 분량의 무음 데이터 생성
+                    byte[] silenceBuffer = new byte[44100 * 2 * 2]; // 1초, 스테레오, 16비트
+                    writer.Write(silenceBuffer, 0, silenceBuffer.Length);
+                }
+                Console.WriteLine($"빈 오디오 파일 생성됨: {targetFilePath}");
+            }
+
+            // 임시 파일 정리
+            try
+            {
+                if (File.Exists(tempSystemAudioFile))
+                    File.Delete(tempSystemAudioFile);
+                if (File.Exists(tempMicrophoneFile))
+                    File.Delete(tempMicrophoneFile);
+
+                string tempDir = Path.GetDirectoryName(tempSystemAudioFile);
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"임시 파일 정리 중 오류: {ex.Message}");
+            }
+
+            Console.WriteLine($"녹음 완료: {targetFilePath}");
         }
         catch (Exception ex)
         {
@@ -394,6 +557,22 @@ class AudioRecordingServer
             StopRecording(finalFilePath);
 
             return "RECORDING_STOPPED";
+        }
+        else if (command.Equals("EXIT") || command.Equals("QUIT"))
+        {
+            // 녹음 중이라면 중지
+            if (isRecording)
+            {
+                StopRecording();
+            }
+
+            // 리소스 정리
+            loopbackCapture?.Dispose();
+            microphoneCapture?.Dispose();
+
+            Console.WriteLine("서버를 종료합니다...");
+            Environment.Exit(0);
+            return "SERVER_STOPPING";
         }
 
         return "UNKNOWN_COMMAND";

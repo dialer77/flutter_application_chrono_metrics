@@ -76,16 +76,16 @@ class UserStateProvider extends ChangeNotifier {
     String path = '';
     switch (appTestType) {
       case AppTestType.reaction:
-        path = '${Directory.current.path}/Data/Reaction/${loadUserInfo.userNumber}_${loadUserInfo.name}';
+        path = '${Directory.current.path}\\Data\\Reaction\\${loadUserInfo.userNumber}_${loadUserInfo.name}';
         break;
       case AppTestType.timeGeneration:
-        path = '${Directory.current.path}/Data/TimeGeneration/${loadUserInfo.userNumber}_${loadUserInfo.name}';
+        path = '${Directory.current.path}\\Data\\TimeGeneration\\${loadUserInfo.userNumber}_${loadUserInfo.name}';
         break;
       case AppTestType.timeEstimationVisual:
-        path = '${Directory.current.path}/Data/TimeEstimationVisual/${loadUserInfo.userNumber}_${loadUserInfo.name}';
+        path = '${Directory.current.path}\\Data\\TimeEstimationVisual\\${loadUserInfo.userNumber}_${loadUserInfo.name}';
         break;
       case AppTestType.timeEstimationAuditory:
-        path = '${Directory.current.path}/Data/TimeEstimationAuditory/${loadUserInfo.userNumber}_${loadUserInfo.name}';
+        path = '${Directory.current.path}\\Data\\TimeEstimationAuditory\\${loadUserInfo.userNumber}_${loadUserInfo.name}';
         break;
     }
 
@@ -119,7 +119,7 @@ class UserStateProvider extends ChangeNotifier {
   }) async {
     try {
       // 기본 경로 설정
-      String basePath = '${Directory.current.path}/Data/Reaction';
+      String basePath = '${Directory.current.path}\\Data\\Reaction';
 
       // Data/Reaction 폴더가 없으면 생성
       Directory baseDir = Directory(basePath);
@@ -211,7 +211,7 @@ class UserStateProvider extends ChangeNotifier {
 
       return practiceResultTimeGeneration;
     } else {
-      String fileName = filePath.split('/').last;
+      String fileName = filePath.split('\\').last;
       // 파일이 없으면 그냥 반환
       TestResultTimeGeneration testResultTimeGeneration = TestResultTimeGeneration(
         userInfo: userInfo,
@@ -258,7 +258,7 @@ class UserStateProvider extends ChangeNotifier {
   }) async {
     try {
       // 기본 경로 설정
-      String basePath = '${Directory.current.path}/Data/TimeGeneration';
+      String basePath = '${Directory.current.path}\\Data\\TimeGeneration';
 
       // Data/Reaction 폴더가 없으면 생성
       Directory baseDir = Directory(basePath);
@@ -312,7 +312,7 @@ class UserStateProvider extends ChangeNotifier {
   TestResultTimeEstimationVisual loadTestResultTimeEstimationVisual(String filePath, UserInfomation userInfo) {
     // path 의 파일 명칭 추출
 
-    String fileName = filePath.split('/').last;
+    String fileName = filePath.split('\\').last;
     // 파일이 없으면 그냥 반환
     TestResultTimeEstimationVisual testResultTimeEstimationVisual = TestResultTimeEstimationVisual(
       userInfo: userInfo,
@@ -357,7 +357,7 @@ class UserStateProvider extends ChangeNotifier {
   }) async {
     try {
       // 기본 경로 설정
-      String basePath = '${Directory.current.path}/Data/TimeEstimationVisual';
+      String basePath = '${Directory.current.path}\\Data\\TimeEstimationVisual';
 
       // Data/Reaction 폴더가 없으면 생성
       Directory baseDir = Directory(basePath);
@@ -403,7 +403,7 @@ class UserStateProvider extends ChangeNotifier {
   TestResultTimeEstimationAuditory loadTestResultTimeEstimationAuditory(String filePath, UserInfomation userInfo) {
     // path 의 파일 명칭 추출
 
-    String fileName = filePath.split('/').last;
+    String fileName = filePath.split('\\').last;
     // 파일이 없으면 그냥 반환
     TestResultTimeEstimationAuditory testResultTimeEstimationAuditory = TestResultTimeEstimationAuditory(
       userInfo: userInfo,
@@ -448,7 +448,7 @@ class UserStateProvider extends ChangeNotifier {
   }) async {
     try {
       // 기본 경로 설정
-      String basePath = '${Directory.current.path}/Data/TimeEstimationAuditory';
+      String basePath = '${Directory.current.path}\\Data\\TimeEstimationAuditory';
 
       // Data/Reaction 폴더가 없으면 생성
       Directory baseDir = Directory(basePath);
@@ -497,8 +497,8 @@ class UserStateProvider extends ChangeNotifier {
     UserInfomation loadUserInfo = userInfo ?? getUserInfo!;
 
     // 결과 파일 경로
-    String userFolderPath = '${Directory.current.path}/Data/Reaction/${loadUserInfo.userNumber}_${loadUserInfo.name}';
-    String resultsFilePath = '$userFolderPath/results.csv';
+    String userFolderPath = '${Directory.current.path}\\Data\\Reaction\\${loadUserInfo.userNumber}_${loadUserInfo.name}';
+    String resultsFilePath = '$userFolderPath\\results.csv';
 
     // 결과 파일이 없으면 빈 맵 반환
     if (!File(resultsFilePath).existsSync()) {

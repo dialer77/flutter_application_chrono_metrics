@@ -25,8 +25,9 @@ class _TestResultPageState extends State<TestResultPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _userNumberController = TextEditingController();
   List<String> testResultList = [];
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  String _currentPlayingPath = '';
+  final AudioPlayer _audioSystemPlayer = AudioPlayer();
+  final AudioPlayer _audioMicPlayer = AudioPlayer();
+  final String _currentPlayingPath = '';
   bool _isPlaying = false;
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
@@ -39,7 +40,7 @@ class _TestResultPageState extends State<TestResultPage> {
     super.initState();
 
     // 플레이어 상태 리스너 설정
-    _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
+    _playerStateSubscription = _audioSystemPlayer.playerStateStream.listen((state) {
       setState(() {
         _isPlaying = state.playing;
         // 재생이 끝나면 상태 초기화
@@ -51,14 +52,14 @@ class _TestResultPageState extends State<TestResultPage> {
     });
 
     // 현재 재생 위치 리스너 설정
-    _positionSubscription = _audioPlayer.positionStream.listen((position) {
+    _positionSubscription = _audioSystemPlayer.positionStream.listen((position) {
       setState(() {
         _currentPosition = position;
       });
     });
 
     // 총 재생 시간 리스너 설정
-    _durationSubscription = _audioPlayer.durationStream.listen((duration) {
+    _durationSubscription = _audioSystemPlayer.durationStream.listen((duration) {
       setState(() {
         _totalDuration = duration ?? Duration.zero;
       });
@@ -78,7 +79,8 @@ class _TestResultPageState extends State<TestResultPage> {
     _playerStateSubscription?.cancel();
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
-    _audioPlayer.dispose();
+    _audioSystemPlayer.dispose();
+    _audioMicPlayer.dispose();
     super.dispose();
   }
 
@@ -324,13 +326,66 @@ class _TestResultPageState extends State<TestResultPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    // 데이터 디렉토리 여는 버튼
+                    IconButton(
+                      icon: const Icon(Icons.folder_open, color: Colors.blue),
+                      tooltip: '데이터 폴더 열기',
+                      onPressed: () async {
+                        final path = '${Directory.current.path}\\Data\\Reaction\\${userInfo?.userNumber}_${userInfo?.name}';
+                        try {
+                          if (Platform.isWindows) {
+                            Process.run('explorer', [path]);
+                          } else if (Platform.isMacOS) {
+                            Process.run('open', [path]);
+                          } else if (Platform.isLinux) {
+                            Process.run('xdg-open', [path]);
+                          }
+                        } catch (e) {
+                          print('폴더 열기 실패: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                    // 음성 파일 디렉토리 여는 버튼
+                    IconButton(
+                      icon: const Icon(Icons.audio_file, color: Colors.orange),
+                      tooltip: '음성 파일 폴더 열기',
+                      onPressed: () async {
+                        final path = '${Directory.current.path}\\Data\\Reaction\\${userInfo?.userNumber}_${userInfo?.name}\\Audio';
+                        try {
+                          if (Platform.isWindows) {
+                            Process.run('explorer', [path]);
+                          } else if (Platform.isMacOS) {
+                            Process.run('open', [path]);
+                          } else if (Platform.isLinux) {
+                            Process.run('xdg-open', [path]);
+                          }
+                        } catch (e) {
+                          print('폴더 열기 실패: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
             const Divider(),
             reactionResult(
-              '${Directory.current.path}/Data/Reaction/${userInfo?.userNumber}_${userInfo?.name}',
+              '${Directory.current.path}\\Data\\Reaction\\${userInfo?.userNumber}_${userInfo?.name}',
               userInfo,
             ),
           ],
@@ -380,6 +435,28 @@ class _TestResultPageState extends State<TestResultPage> {
                     // 오디오 파일 경로 (모든 결과가 동일한 오디오 파일을 가리킴)
                     String audioPath = sessionResults.first['audioFilePath'];
 
+                    // 오디오 파일 경로에서 마이크와 시스템 녹음 파일 경로 생성
+                    String audioMicPath = '';
+                    String audioSystemPath = '';
+
+                    if (audioPath.isNotEmpty) {
+                      // 파일 경로에서 확장자 제거
+                      String pathWithoutExtension = audioPath;
+                      if (audioPath.contains('.')) {
+                        pathWithoutExtension = audioPath.substring(0, audioPath.lastIndexOf('.'));
+                      }
+
+                      // 확장자 (있는 경우)
+                      String extension = '';
+                      if (audioPath.contains('.')) {
+                        extension = audioPath.substring(audioPath.lastIndexOf('.'));
+                      }
+
+                      // 마이크와 시스템 녹음 파일 경로 생성
+                      audioMicPath = '${pathWithoutExtension}_mic$extension';
+                      audioSystemPath = '${pathWithoutExtension}_system$extension';
+                    }
+
                     return ExpansionTile(
                       title: Text('세션 시간: ${testTime.split(' ')[1]}'),
                       subtitle: audioPath.isNotEmpty ? const Text('녹음 파일 있음', style: TextStyle(color: Colors.green)) : null,
@@ -400,90 +477,6 @@ class _TestResultPageState extends State<TestResultPage> {
                                 // 청각 자극 결과
                                 const Text('청각 측정 결과', style: TextStyle(fontWeight: FontWeight.bold)),
                                 ...sessionResults.where((result) => result['stimulusType'] == '청각').map((result) => reactionResultRow(result)),
-
-                                // 오디오 파일 링크 (있는 경우)
-                                if (audioPath.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 16.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // 재생 컨트롤
-                                        Row(
-                                          children: [
-                                            // 재생/일시정지 버튼
-                                            IconButton(
-                                              icon: Icon(
-                                                _isPlaying && _currentPlayingPath == audioPath ? Icons.pause : Icons.play_arrow,
-                                                color: Colors.blue,
-                                              ),
-                                              onPressed: () async {
-                                                try {
-                                                  if (_currentPlayingPath != audioPath) {
-                                                    // 새 오디오 파일 재생
-                                                    await _audioPlayer.setFilePath(audioPath);
-                                                    _currentPlayingPath = audioPath;
-                                                    await _audioPlayer.play();
-                                                  } else if (_isPlaying) {
-                                                    // 재생 중인 오디오 일시정지
-                                                    await _audioPlayer.pause();
-                                                  } else {
-                                                    // 일시정지된 오디오 재개
-                                                    await _audioPlayer.play();
-                                                  }
-                                                } catch (e) {
-                                                  print('오디오 재생 오류: $e');
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(content: Text('오디오 재생 실패: $e')),
-                                                  );
-                                                }
-                                              },
-                                            ),
-
-                                            // 현재 시간 표시
-                                            Text(
-                                              _currentPlayingPath == audioPath ? _formatDuration(_currentPosition) : '00:00',
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
-
-                                            // 진행 슬라이더
-                                            Expanded(
-                                              child: Slider(
-                                                value: _currentPlayingPath == audioPath ? _currentPosition.inMilliseconds.toDouble() : 0,
-                                                max: _currentPlayingPath == audioPath ? _totalDuration.inMilliseconds.toDouble() : 1,
-                                                min: 0,
-                                                onChanged: (value) {
-                                                  if (_currentPlayingPath == audioPath) {
-                                                    _audioPlayer.seek(Duration(milliseconds: value.toInt()));
-                                                  }
-                                                },
-                                              ),
-                                            ),
-
-                                            // 총 시간 표시
-                                            Text(
-                                              _currentPlayingPath == audioPath ? _formatDuration(_totalDuration) : '00:00',
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-
-                                        // 현재 재생 중인 파일 표시
-                                        if (_currentPlayingPath == audioPath && _isPlaying)
-                                          const Padding(
-                                            padding: EdgeInsets.only(top: 4.0, left: 12.0),
-                                            child: Text(
-                                              '현재 재생 중...',
-                                              style: TextStyle(
-                                                color: Colors.green,
-                                                fontSize: 12,
-                                                fontStyle: FontStyle.italic,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
                               ],
                             ),
                           ),
@@ -526,6 +519,7 @@ class _TestResultPageState extends State<TestResultPage> {
   }
 
   Widget _buildTimeGenerationContent() {
+    final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -540,9 +534,17 @@ class _TestResultPageState extends State<TestResultPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '연습 과제',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  const SizedBox(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '연습 과제',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
                   const Divider(),
                   practiceResult(),
@@ -554,9 +556,65 @@ class _TestResultPageState extends State<TestResultPage> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  const Text(
-                    '본 실험 과제',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  SizedBox(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '본 실험 과제',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Row(
+                          children: [
+                            // 데이터 디렉토리 여는 버튼
+                            IconButton(
+                              icon: const Icon(Icons.folder_open, color: Colors.blue),
+                              tooltip: '데이터 폴더 열기',
+                              onPressed: () async {
+                                final path = '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}';
+                                try {
+                                  if (Platform.isWindows) {
+                                    Process.run('explorer', [path]);
+                                  } else if (Platform.isMacOS) {
+                                    Process.run('open', [path]);
+                                  } else if (Platform.isLinux) {
+                                    Process.run('xdg-open', [path]);
+                                  }
+                                } catch (e) {
+                                  print('폴더 열기 실패: $e');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('폴더 열기 실패: $e')),
+                                  );
+                                }
+                              },
+                            ),
+                            // 음성 파일 디렉토리 여는 버튼
+                            IconButton(
+                              icon: const Icon(Icons.audio_file, color: Colors.orange),
+                              tooltip: '음성 파일 폴더 열기',
+                              onPressed: () async {
+                                final path = '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}\\recordings';
+                                try {
+                                  if (Platform.isWindows) {
+                                    Process.run('explorer', [path]);
+                                  } else if (Platform.isMacOS) {
+                                    Process.run('open', [path]);
+                                  } else if (Platform.isLinux) {
+                                    Process.run('xdg-open', [path]);
+                                  }
+                                } catch (e) {
+                                  print('폴더 열기 실패: $e');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('폴더 열기 실패: $e')),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   const Divider(),
                   testResult(),
@@ -572,7 +630,7 @@ class _TestResultPageState extends State<TestResultPage> {
   Widget practiceResult() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
     final practiceResultTimeGeneration = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
-      '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}/practice_result.csv',
+      '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}\\practice_result.csv',
       userInfo!,
       true,
     );
@@ -618,7 +676,7 @@ class _TestResultPageState extends State<TestResultPage> {
 
   Widget testResult() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeGeneration/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeGeneration\\${userInfo?.userNumber}_${userInfo?.name}';
     return Container(
       width: MediaQuery.of(context).size.width * 0.9,
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -647,7 +705,7 @@ class _TestResultPageState extends State<TestResultPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: (() {
                       final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeGeneration(
-                        '$path/$result',
+                        '$path\\$result',
                         userInfo!,
                         false,
                       );
@@ -732,9 +790,62 @@ class _TestResultPageState extends State<TestResultPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    // 데이터 디렉토리 여는 버튼
+                    IconButton(
+                      icon: const Icon(Icons.folder_open, color: Colors.blue),
+                      tooltip: '데이터 폴더 열기',
+                      onPressed: () async {
+                        final path = '${Directory.current.path}\\Data\\TimeEstimationVisual\\${userInfo?.userNumber}_${userInfo?.name}';
+                        try {
+                          if (Platform.isWindows) {
+                            Process.run('explorer', [path]);
+                          } else if (Platform.isMacOS) {
+                            Process.run('open', [path]);
+                          } else if (Platform.isLinux) {
+                            Process.run('xdg-open', [path]);
+                          }
+                        } catch (e) {
+                          print('폴더 열기 실패: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                    // 음성 파일 디렉토리 여는 버튼
+                    IconButton(
+                      icon: const Icon(Icons.audio_file, color: Colors.orange),
+                      tooltip: '음성 파일 폴더 열기',
+                      onPressed: () async {
+                        final path = '${Directory.current.path}\\Data\\TimeEstimationVisual\\${userInfo?.userNumber}_${userInfo?.name}\\recordings';
+                        try {
+                          if (Platform.isWindows) {
+                            Process.run('explorer', [path]);
+                          } else if (Platform.isMacOS) {
+                            Process.run('open', [path]);
+                          } else if (Platform.isLinux) {
+                            Process.run('xdg-open', [path]);
+                          }
+                        } catch (e) {
+                          print('폴더 열기 실패: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
             const Divider(),
             testResultViewTimeEstimationVisual(),
@@ -746,7 +857,7 @@ class _TestResultPageState extends State<TestResultPage> {
 
   Widget testResultViewTimeEstimationVisual() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeEstimationVisual/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeEstimationVisual\\${userInfo?.userNumber}_${userInfo?.name}';
     return Container(
       width: MediaQuery.of(context).size.width * 0.9,
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -775,7 +886,7 @@ class _TestResultPageState extends State<TestResultPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: (() {
                       final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeEstimationVisual(
-                        '$path/$result',
+                        '$path\\$result',
                         userInfo!,
                       );
 
@@ -859,21 +970,74 @@ class _TestResultPageState extends State<TestResultPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '이름 : ${userInfo?.name} 학번 : ${userInfo?.userNumber}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    // 데이터 디렉토리 여는 버튼
+                    IconButton(
+                      icon: const Icon(Icons.folder_open, color: Colors.blue),
+                      tooltip: '데이터 폴더 열기',
+                      onPressed: () async {
+                        final path = '${Directory.current.path}\\Data\\TimeEstimationAuditory\\${userInfo?.userNumber}_${userInfo?.name}';
+                        try {
+                          if (Platform.isWindows) {
+                            Process.run('explorer', [path]);
+                          } else if (Platform.isMacOS) {
+                            Process.run('open', [path]);
+                          } else if (Platform.isLinux) {
+                            Process.run('xdg-open', [path]);
+                          }
+                        } catch (e) {
+                          print('폴더 열기 실패: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                    // 음성 파일 디렉토리 여는 버튼
+                    IconButton(
+                      icon: const Icon(Icons.audio_file, color: Colors.orange),
+                      tooltip: '음성 파일 폴더 열기',
+                      onPressed: () async {
+                        final path = '${Directory.current.path}\\Data\\TimeEstimationAuditory\\${userInfo?.userNumber}_${userInfo?.name}\\recordings';
+                        try {
+                          if (Platform.isWindows) {
+                            Process.run('explorer', [path]);
+                          } else if (Platform.isMacOS) {
+                            Process.run('open', [path]);
+                          } else if (Platform.isLinux) {
+                            Process.run('xdg-open', [path]);
+                          }
+                        } catch (e) {
+                          print('폴더 열기 실패: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
             const Divider(),
-            testResultViewTimeEstimationVisual(),
+            testResultViewTimeEstimationAuditory(),
           ],
         ),
       ),
     );
   }
 
-  Widget testResultView() {
+  Widget testResultViewTimeEstimationAuditory() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeEstimationAuditory/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeEstimationAuditory\\${userInfo?.userNumber}_${userInfo?.name}';
     return Container(
       width: MediaQuery.of(context).size.width * 0.9,
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -901,7 +1065,7 @@ class _TestResultPageState extends State<TestResultPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: (() {
                       final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeEstimationAuditory(
-                        '$path/$result',
+                        '$path\\$result',
                         userInfo!,
                       );
 

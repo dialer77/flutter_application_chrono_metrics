@@ -96,7 +96,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     final dateStr = DateFormat('yyyyMMddHHmmss').format(dateTime);
 
     // 파일 경로 직접 생성
-    final directory = Directory('${Directory.current.path}/Data/TimeEstimationAuditory/${userInfo.userNumber}_${userInfo.name}/recordings');
+    final directory = Directory('${Directory.current.path}\\Data\\TimeEstimationAuditory\\${userInfo.userNumber}_${userInfo.name}\\recordings');
     if (!directory.existsSync()) {
       directory.createSync(recursive: true);
     }
@@ -241,12 +241,12 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
 
       final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
       final Directory appDocDir = await getApplicationDocumentsDirectory();
-      final String recordingPath = '${appDocDir.path}/Data/TimeEstimationAuditory/${userInfo?.userNumber}_${userInfo?.name}';
+      final String recordingPath = '${appDocDir.path}\\Data\\TimeEstimationAuditory\\${userInfo?.userNumber}_${userInfo?.name}';
 
       await Directory(recordingPath).create(recursive: true);
 
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      _sessionAudioPath = '$recordingPath/session_task${taskCount}_round${currentRound}_$timestamp.wav';
+      _sessionAudioPath = '$recordingPath\\session_task${taskCount}_round${currentRound}_$timestamp.wav';
 
       print('Audio session prepared: $_sessionAudioPath');
     } catch (e) {
@@ -409,7 +409,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
 
   RecordDrawer getRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeEstimationAuditory/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeEstimationAuditory\\${userInfo?.userNumber}_${userInfo?.name}';
     return RecordDrawer(
       path: path,
       record: Scrollbar(
@@ -440,7 +440,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   final ScrollController _scrollController = ScrollController();
   Widget testResultView() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/TimeEstimationAuditory/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\TimeEstimationAuditory\\${userInfo?.userNumber}_${userInfo?.name}';
     return Container(
       width: MediaQuery.of(context).size.width * 0.9,
       padding: const EdgeInsets.only(left: 16, right: 16),
@@ -468,7 +468,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: (() {
                       final testResult = Provider.of<UserStateProvider>(context, listen: false).loadTestResultTimeEstimationAuditory(
-                        '$path/$result',
+                        '$path\\$result',
                         userInfo!,
                       );
 

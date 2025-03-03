@@ -34,10 +34,16 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   int currentRound = 0;
   final int maxRounds = 5;
   late AudioPlayer player;
+  late AudioPlayer startSoundPlayer; // 녹음 시작용 플레이어 추가
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _userNumberController = TextEditingController();
   bool _isRecording = false; // 음성 녹음 상태
   String? _currentRecordingPath; // 현재 녹음 파일 경로
+
+  // 녹음 시간 관련 변수 추가
+  DateTime? _recordingStartTime;
+  Timer? _recordingTimer;
+  String _recordingDuration = "00:00";
 
   late TestResultReaction testResultReaction;
 
@@ -86,6 +92,12 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     final audioSource = AudioSource.asset('assets/beep.mp3');
     await player.setAudioSource(audioSource);
     await player.setVolume(1.0);
+
+    // 시작 사운드 플레이어 초기화
+    startSoundPlayer = AudioPlayer();
+    final startAudioSource = AudioSource.asset('assets/start.mp3');
+    await startSoundPlayer.setAudioSource(startAudioSource);
+    await startSoundPlayer.setVolume(0.1); // 낮은 볼륨으로 설정
   }
 
   @override
@@ -93,9 +105,14 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     _nameController.dispose();
     _userNumberController.dispose();
     player.dispose();
+    startSoundPlayer.dispose(); // 시작 사운드 플레이어 해제
     focusNode.dispose();
+    // 타이머 반드시 취소
+    _recordingTimer?.cancel();
     // 녹음 중인 경우 중지
-    _stopRecording();
+    if (_isRecording) {
+      AudioRecordingManager().stopRecording(_currentRecordingPath!);
+    }
     super.dispose();
   }
 
@@ -106,13 +123,18 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
     if (userInfo == null) return;
 
+    // 녹음 시작 시 start.mp3 파일 짧게 재생
+    try {} catch (e) {
+      print('시작 사운드 재생 실패: $e');
+    }
+
     final dateTime = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final mode = isAudioMode ? 'auditory' : 'visual';
 
     // 테스트 결과 파일과 동일한 경로 구조 사용
-    final String baseDirectory = '${Directory.current.path}/Data/Reaction';
-    final String userPath = '$baseDirectory/${userInfo.userNumber}_${userInfo.name}';
-    final String recordingDirectory = '$userPath/Audio';
+    final String baseDirectory = '${Directory.current.path}\\Data\\Reaction';
+    final String userPath = '$baseDirectory\\${userInfo.userNumber}_${userInfo.name}';
+    final String recordingDirectory = '$userPath\\Audio';
 
     // 디렉토리가 없으면 생성
     final directory = Directory(recordingDirectory);
@@ -129,6 +151,9 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     // 녹음 시작
     final success = await AudioRecordingManager().startRecording(filePath);
     if (success) {
+      _recordingStartTime = DateTime.now();
+      _startRecordingTimer(); // 타이머 시작
+
       setState(() {
         _isRecording = true;
       });
@@ -136,14 +161,41 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     }
   }
 
+  // 녹음 타이머 시작
+  void _startRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!_isRecording || _recordingStartTime == null) {
+        timer.cancel();
+        return;
+      }
+
+      // 위젯이 여전히 트리에 있는지 확인
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final duration = DateTime.now().difference(_recordingStartTime!);
+      setState(() {
+        // MM:SS 형식으로 시간 표시
+        _recordingDuration = '${(duration.inMinutes).toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+      });
+    });
+  }
+
   // 음성 녹음 중지
   Future<void> _stopRecording() async {
     if (!_isRecording || _currentRecordingPath == null) return;
 
+    _recordingTimer?.cancel(); // 타이머 중지
+
     final success = await AudioRecordingManager().stopRecording(_currentRecordingPath!);
-    if (success) {
+    if (success && mounted) {
+      // mounted 체크 추가
       setState(() {
         _isRecording = false;
+        _recordingDuration = "00:00";
       });
       print('음성 녹음 중지: $_currentRecordingPath');
     }
@@ -301,13 +353,13 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
             ),
             // 녹음 상태 표시 아이콘
             if (_isRecording)
-              const Padding(
-                padding: EdgeInsets.only(right: 16.0),
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
                 child: Row(
                   children: [
-                    Icon(Icons.mic, color: Colors.red),
-                    SizedBox(width: 4),
-                    Text('녹음 중', style: TextStyle(color: Colors.red)),
+                    const Icon(Icons.mic, color: Colors.red),
+                    const SizedBox(width: 4),
+                    Text('녹음 중 $_recordingDuration', style: const TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -421,7 +473,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
 
   RecordDrawer getRecordDrawer() {
     final userInfo = Provider.of<UserStateProvider>(context).getUserInfo;
-    String path = '${Directory.current.path}/Data/Reaction/${userInfo?.userNumber}_${userInfo?.name}';
+    String path = '${Directory.current.path}\\Data\\Reaction\\${userInfo?.userNumber}_${userInfo?.name}';
     return RecordDrawer(
       path: path,
       record: reactionResultFromFile(userInfo),
@@ -483,12 +535,8 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
                           String testTime = timeEntry.key;
                           List<Map<String, dynamic>> sessionResults = timeEntry.value;
 
-                          // 오디오 파일 경로 (모든 결과가 동일한 오디오 파일을 가리킴)
-                          String audioPath = sessionResults.first['audioFilePath'];
-
                           return ExpansionTile(
                             title: Text('세션 시간: ${testTime.split(' ')[1]}'),
-                            subtitle: audioPath.isNotEmpty ? const Text('녹음 파일 있음', style: TextStyle(color: Colors.green)) : null,
                             children: [
                               SizedBox(
                                 width: MediaQuery.of(context).size.width * 0.9,
@@ -506,21 +554,6 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
                                       // 청각 자극 결과
                                       const Text('청각 측정 결과', style: TextStyle(fontWeight: FontWeight.bold)),
                                       ...sessionResults.where((result) => result['stimulusType'] == '청각').map((result) => reactionResultRow(result)),
-
-                                      // 오디오 파일 링크 (있는 경우)
-                                      if (audioPath.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 16.0),
-                                          child: OutlinedButton.icon(
-                                            icon: const Icon(Icons.play_arrow),
-                                            label: const Text('녹음 재생'),
-                                            onPressed: () {
-                                              // 오디오 파일 재생 로직
-                                              // 여기에 오디오 재생 기능을 추가할 수 있습니다
-                                              print('오디오 파일 재생: $audioPath');
-                                            },
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 ),
