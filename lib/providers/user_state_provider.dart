@@ -111,7 +111,7 @@ class UserStateProvider extends ChangeNotifier {
     return csvFiles.reversed.toList();
   }
 
-  Future<void> saveTestResultReaction({
+  void saveTestResultReaction({
     required String studentId,
     required String name,
     required TestResultReaction testResultReaction,
@@ -174,7 +174,6 @@ class UserStateProvider extends ChangeNotifier {
         await file.writeAsString(sb.toString(), encoding: utf8);
       }
     } catch (e) {
-      print('테스트 결과 저장 중 오류 발생: $e');
       // 에러를 상위로 전파
     }
   }
@@ -295,11 +294,15 @@ class UserStateProvider extends ChangeNotifier {
         String timestamp = DateFormat('yyyyMMddHHmmss').format(testResultTimeGeneration.testTime);
         file = File('$userFolderPath/result_$timestamp.csv');
 
-        sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
+        // 헤더 수정
+        sb.writeln('라운드,과제,생성시간(ms),사용자추정시간(ms)');
         int count = 1;
         int taskCount = testResultTimeGeneration.taskCount;
         for (var data in testResultTimeGeneration.testDataList) {
-          sb.writeln('${((count - taskCount) + 1).toStringAsFixed(0)}-${((count % taskCount) + 1).toStringAsFixed(0)},${data.targetTime},${data.elapsedTime}');
+          // 라운드와 과제를 별도의 열로 분리
+          int round = (count - 1) ~/ taskCount + 1; // 라운드 계산
+          int task = (count - 1) % taskCount + 1; // 과제 계산
+          sb.writeln("$round,$task,${data.targetTime},${data.elapsedTime}");
           count++;
         }
       }
@@ -383,14 +386,13 @@ class UserStateProvider extends ChangeNotifier {
       String timestamp = DateFormat('yyyyMMddHHmmss').format(testResultTimeEstimationVisual.testTime);
       file = File('$userFolderPath/result_$timestamp.csv');
 
-      sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
-      int count = 0;
+      sb.writeln('라운드,과제,생성시간(ms),사용자추정시간(ms)');
+      int count = 1;
       int taskCount = testResultTimeEstimationVisual.taskCount;
       for (var data in testResultTimeEstimationVisual.testDataList) {
-        int round = ((count / taskCount) + 1).toInt();
-        int task = ((count % taskCount) + 1).toInt();
-
-        sb.writeln('$round - $task,${data.targetTime},${data.elapsedTime}');
+        int round = (count - 1) ~/ taskCount + 1;
+        int task = (count - 1) % taskCount + 1;
+        sb.writeln("$round,$task,${data.targetTime},${data.elapsedTime}");
         count++;
       }
 
@@ -474,14 +476,13 @@ class UserStateProvider extends ChangeNotifier {
       String timestamp = DateFormat('yyyyMMddHHmmss').format(testResultTimeEstimationAuditory.testTime);
       file = File('$userFolderPath/result_$timestamp.csv');
 
-      sb.writeln('횟수, 생성시간(ms), 사용자추정시간(ms)');
-      int count = 0;
+      sb.writeln('라운드,과제,생성시간(ms),사용자추정시간(ms)');
+      int count = 1;
       int taskCount = testResultTimeEstimationAuditory.taskCount;
       for (var data in testResultTimeEstimationAuditory.testDataList) {
-        int round = ((count / taskCount) + 1).toInt();
-        int task = ((count % taskCount) + 1).toInt();
-
-        sb.writeln('$round - $task,${data.targetTime},${data.elapsedTime}');
+        int round = (count - 1) ~/ taskCount + 1;
+        int task = (count - 1) % taskCount + 1;
+        sb.writeln("$round,$task,${data.targetTime},${data.elapsedTime}");
         count++;
       }
 
