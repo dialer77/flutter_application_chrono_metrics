@@ -115,7 +115,8 @@ class UserStateProvider extends ChangeNotifier {
     required String studentId,
     required String name,
     required TestResultReaction testResultReaction,
-    String? audioFilePath, // 음성 파일 경로 추가
+    String? audioVisualPath, // 음성 파일 경로 추가
+    String? audioAuditoryPath, // 음성 파일 경로 추가
   }) async {
     try {
       // 기본 경로 설정
@@ -155,14 +156,14 @@ class UserStateProvider extends ChangeNotifier {
       // 시각 자극 결과 추가
       int count = 1;
       for (var data in testResultReaction.visualTestData) {
-        sb.writeln('$testDateTime,$count,시각,${data.targetMilliseconds},${data.resultMilliseconds},${audioFilePath ?? ""}');
+        sb.writeln('$testDateTime,$count,시각,${data.targetMilliseconds},${data.resultMilliseconds},${audioVisualPath ?? ""}');
         count++;
       }
 
       // 청각 자극 결과 추가
       count = 1;
       for (var data in testResultReaction.auditoryTestData) {
-        sb.writeln('$testDateTime,$count,청각,${data.targetMilliseconds},${data.resultMilliseconds},${audioFilePath ?? ""}');
+        sb.writeln('$testDateTime,$count,청각,${data.targetMilliseconds},${data.resultMilliseconds},${audioAuditoryPath ?? ""}');
         count++;
       }
 
@@ -298,7 +299,7 @@ class UserStateProvider extends ChangeNotifier {
         int count = 1;
         int taskCount = testResultTimeGeneration.taskCount;
         for (var data in testResultTimeGeneration.testDataList) {
-          sb.writeln('${((count / taskCount) + 1).toStringAsFixed(0)}-${((count % taskCount) + 1).toStringAsFixed(0)},${data.targetTime},${data.elapsedTime}');
+          sb.writeln('${((count - taskCount) + 1).toStringAsFixed(0)}-${((count % taskCount) + 1).toStringAsFixed(0)},${data.targetTime},${data.elapsedTime}');
           count++;
         }
       }
@@ -389,7 +390,7 @@ class UserStateProvider extends ChangeNotifier {
         int round = ((count / taskCount) + 1).toInt();
         int task = ((count % taskCount) + 1).toInt();
 
-        sb.writeln('$round-$task,${data.targetTime},${data.elapsedTime}');
+        sb.writeln('$round - $task,${data.targetTime},${data.elapsedTime}');
         count++;
       }
 
@@ -480,7 +481,7 @@ class UserStateProvider extends ChangeNotifier {
         int round = ((count / taskCount) + 1).toInt();
         int task = ((count % taskCount) + 1).toInt();
 
-        sb.writeln('$round-$task,${data.targetTime},${data.elapsedTime}');
+        sb.writeln('$round - $task,${data.targetTime},${data.elapsedTime}');
         count++;
       }
 

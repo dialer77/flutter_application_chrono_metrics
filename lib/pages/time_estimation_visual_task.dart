@@ -49,6 +49,9 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
   List<String> testResultList = [];
   TestResultTimeEstimationVisual testResult = TestResultTimeEstimationVisual(userInfo: UserInfomation(name: '', userNumber: ''));
 
+  // bool 대신 double을 사용하여 투명도 제어
+  double _squareOpacity = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +60,21 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
       vsync: this,
       duration: const Duration(seconds: 5),
     );
+
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _squareOpacity = 0.0;
+        });
+
+        // 사각형이 사라진 후 3초 후에 종료
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            _endTask();
+          }
+        });
+      }
+    });
 
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_animationController)
       ..addListener(() {
@@ -158,19 +176,51 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
   void _startTask() {
     targetSeconds = taskTimeList[taskCount - 1];
 
-    _animationController.duration = Duration(seconds: targetSeconds);
+    setState(() {
+      _squareOpacity = 0.0;
+    });
 
     // 본 테스트 모드이고 첫 라운드의 첫 번째 과제일 때만 녹음 시작
     if (!isPracticeMode && currentRound == 1 && taskCount == 1 && !_isRecording) {
       _startRecording();
     }
 
-    _animationController.forward(from: 0.0);
+    print('타겟 시간: $targetSeconds초');
+    print('시작 시간: ${DateTime.now()}');
+
+    // 1초 후에 사각형 표시
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && isStarted) {
+        setState(() {
+          _squareOpacity = 1.0; // 페이드 인
+        });
+        print('사각형 표시 시간: ${DateTime.now()}');
+
+        // targetSeconds 후에 사각형 숨기기
+        Future.delayed(Duration(seconds: targetSeconds), () {
+          if (mounted && isStarted) {
+            setState(() {
+              _squareOpacity = 0.0; // 페이드 아웃
+            });
+            print('사각형 사라짐 시간: ${DateTime.now()}');
+
+            // 사각형이 사라진 후 3초 후에 종료
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted && isStarted) {
+                _endTask();
+              }
+            });
+          }
+        });
+      }
+    });
   }
 
   void _endTask() {
-    _animationController.stop();
-
+    print('종료 시간: ${DateTime.now()}');
+    setState(() {
+      isStarted = false;
+    });
     _showEstimatedTimeDialog();
   }
 
@@ -185,7 +235,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('사각형이 이동한 시간은 몇 초인가요?'),
+              const Text('사각형이 나타났다가 사라질 때까지 몇 초 걸렸는지 세어보세요'),
               const SizedBox(height: 10),
               TextField(
                 controller: _estimatedTimeController,
@@ -277,14 +327,17 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
         _startTask();
       }
     } else {
-      setState(() {
-        isStarted = false;
-      });
+      // 연습 모드일 때만 스페이스바로 중단 가능
       if (isPracticeMode) {
+        setState(() {
+          isStarted = false;
+        });
         _metronomeController.stop();
-      } else {
-        _endTask();
       }
+      // 본 실험 모드일 때는 스페이스바로 중단 불가능
+      // else {
+      //   _endTask();  // 이 부분 제거
+      // }
     }
   }
 
@@ -593,21 +646,23 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
         ],
       );
     } else {
-      return Stack(
-        children: [
-          Positioned(
-            left: _animation.value * MediaQuery.of(context).size.width * 0.9,
-            top: MediaQuery.of(context).size.height * 0.3,
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.1,
-              height: MediaQuery.of(context).size.height * 0.1,
-              decoration: BoxDecoration(
-                color: Colors.purple,
-                borderRadius: BorderRadius.circular(8),
-              ),
+      return Center(
+        child: AnimatedOpacity(
+          // opacity 값을 기반으로 페이드 인/아웃
+          opacity: _squareOpacity,
+          // 0.2초 동안 페이드 인/아웃
+          duration: const Duration(milliseconds: 100),
+          // 페이드 효과를 부드럽게 만드는 커브
+          curve: Curves.easeInOut,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.1,
+            height: MediaQuery.of(context).size.height * 0.1,
+            decoration: BoxDecoration(
+              color: Colors.purple,
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
-        ],
+        ),
       );
     }
   }

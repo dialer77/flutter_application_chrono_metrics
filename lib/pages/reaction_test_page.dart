@@ -39,6 +39,8 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   final TextEditingController _userNumberController = TextEditingController();
   bool _isRecording = false; // 음성 녹음 상태
   String? _currentRecordingPath; // 현재 녹음 파일 경로
+  String? _currentRecordingPathAuditory; // 현재 녹음 파일 경로
+  String? _currentRecordingPathVisual; // 현재 녹음 파일 경로
 
   // 녹음 시간 관련 변수 추가
   DateTime? _recordingStartTime;
@@ -147,6 +149,11 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
     final String filePath = '$recordingDirectory/$audioFilename';
 
     _currentRecordingPath = filePath;
+    if (isAudioMode) {
+      _currentRecordingPathAuditory = filePath;
+    } else {
+      _currentRecordingPathVisual = filePath;
+    }
 
     // 녹음 시작
     final success = await AudioRecordingManager().startRecording(filePath);
@@ -297,7 +304,8 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
             studentId: userInfo.userNumber,
             name: userInfo.name,
             testResultReaction: testResultReaction,
-            audioFilePath: _currentRecordingPath,
+            audioAuditoryPath: _currentRecordingPathAuditory,
+            audioVisualPath: _currentRecordingPathVisual,
           );
 
           testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.reaction, Provider.of<UserStateProvider>(context, listen: false).getUserInfo);

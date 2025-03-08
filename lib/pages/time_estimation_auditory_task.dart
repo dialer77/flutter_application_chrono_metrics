@@ -36,7 +36,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   int taskCount = 1;
   final maxTaskCount = 4;
   int currentRound = 1;
-  final int maxRounds = 2;
+  final int maxRounds = 5;
 
   FocusNode focusNode = FocusNode();
   bool isPracticeMode = true;

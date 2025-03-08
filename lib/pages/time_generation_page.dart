@@ -381,11 +381,18 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                           if (isShowingTarget || !isStarted) {
                             return getDisplayTestWidget();
                           } else {
-                            return Icon(
-                              isMeasuring ? Icons.circle : Icons.add,
-                              size: MediaQuery.of(context).size.height * 0.4,
-                              color: Colors.black,
-                            );
+                            if (isMeasuring) {
+                              return Icon(
+                                Icons.circle,
+                                size: MediaQuery.of(context).size.height * 0.4,
+                                color: Colors.black,
+                              );
+                            } else {
+                              return Text(
+                                '준비',
+                                style: getDisplayStyle(),
+                              );
+                            }
                           }
                         }()),
                         if (isStarted == false) ...[
@@ -465,12 +472,12 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            upperText,
-            style: getDisplayStyle(), // 기존 스타일 적용
-            textAlign: TextAlign.center,
-          ),
           if (isPracticeMode) ...[
+            Text(
+              upperText,
+              style: getDisplayStyle(), // 기존 스타일 적용
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 20), // 두 텍스트 사이 간격
             Text(
               lowerText,
@@ -539,9 +546,9 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                 text: ' 이렇게 마음 속으로 셀 시간이 나타납니다.\n'
                     '그런 후,\n',
               ),
-              const WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Icon(Icons.add, size: 24, color: Colors.black),
+              const TextSpan(
+                text: '\'준비\'',
+                style: TextStyle(color: Colors.black),
               ),
               const TextSpan(
                 text: '를 응시하고 있다가 ',

@@ -359,63 +359,68 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
                   ),
 
                 // 청각 모드일 때 왼쪽에 텍스트 내용 인터페이스 추가
-                if (widget.isAuditoryMode)
-                  Positioned(
-                    top: widget.height * 0.3, // 상단에서 약 25% 위치
-                    left: 15,
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.25, // 적절한 너비
-                      padding: const EdgeInsets.all(10.0),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(10.0),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                        border: Border.all(
-                          color: widget.primaryColor.withOpacity(0.3),
-                          width: 1.5,
+
+                Positioned(
+                  top: widget.height * 0.3, // 상단에서 약 25% 위치
+                  left: 0,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.325, // 적절한 너비
+                    padding: const EdgeInsets.all(10.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(10.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          spreadRadius: 1,
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                            decoration: BoxDecoration(
-                              color: widget.primaryColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4.0),
-                            ),
-                            child: Text(
-                              '안내 사항',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: widget.primaryColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '지금부터 소리가 나는 동안 시간을 세어볼게요\n'
-                            '이 두 개의 알림음 사이에 들리는 소리의 시간을 재어볼게요.\n'
-                            '이건 추가 움직이는 1초의 소리를 의미합니다.\n'
-                            '박자에 맞춰 1초의 소리를 기억해주세요.\n'
-                            '충분히 연습하셨으면 스페이스바를 눌러주세요.\n'
-                            '한 번 연습해보실께요.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
+                      ],
+                      border: Border.all(
+                        color: widget.primaryColor.withOpacity(0.3),
+                        width: 1.5,
                       ),
                     ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                          decoration: BoxDecoration(
+                            color: widget.primaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4.0),
+                          ),
+                          child: Text(
+                            '안내 사항',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: widget.primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.isAuditoryMode
+                              ? '지금부터 소리가 나는 동안 시간을 세어볼게요\n'
+                                  '이 두 개의 알림음 사이에 들리는 소리의 시간을 재어볼게요.\n'
+                                  '이건 추가 움직이는 1초의 소리를 의미합니다.\n'
+                                  '박자에 맞춰 1초의 소리를 기억해주세요.\n'
+                                  '충분히 연습하셨으면 스페이스바를 눌러주세요.\n'
+                                  '한 번 연습해보실께요.'
+                              : '지금부터 화면에 띵 소리와 함께 추가 양쪽으로 움직일 거예요\n'
+                                  '한번 움직일 때 1초입니다. 박자에 맞춰 기억해주세요\n'
+                                  '충분히 연습하셨으면 스페이스바를 눌러주세요.\n'
+                                  '한 번 연습해보실께요.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
 
                 // 하단 중앙에 텍스트 추가
                 Positioned(

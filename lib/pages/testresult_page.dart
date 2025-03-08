@@ -25,10 +25,10 @@ class _TestResultPageState extends State<TestResultPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _userNumberController = TextEditingController();
   List<String> testResultList = [];
-  final AudioPlayer _audioSystemPlayer = AudioPlayer();
-  final AudioPlayer _audioMicPlayer = AudioPlayer();
-  final String _currentPlayingPath = '';
-  bool _isPlaying = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String _currentPlayingPath = '';
+  bool _isMicSelected = true; // 마이크/시스템 선택 상태
+  bool _isVisualSelected = true; // 시각/청각 선택 상태
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
   StreamSubscription<PlayerState>? _playerStateSubscription;
@@ -40,26 +40,23 @@ class _TestResultPageState extends State<TestResultPage> {
     super.initState();
 
     // 플레이어 상태 리스너 설정
-    _playerStateSubscription = _audioSystemPlayer.playerStateStream.listen((state) {
+    _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       setState(() {
-        _isPlaying = state.playing;
-        // 재생이 끝나면 상태 초기화
         if (state.processingState == ProcessingState.completed) {
           _currentPosition = Duration.zero;
-          _isPlaying = false;
         }
       });
     });
 
     // 현재 재생 위치 리스너 설정
-    _positionSubscription = _audioSystemPlayer.positionStream.listen((position) {
+    _positionSubscription = _audioPlayer.positionStream.listen((position) {
       setState(() {
         _currentPosition = position;
       });
     });
 
     // 총 재생 시간 리스너 설정
-    _durationSubscription = _audioSystemPlayer.durationStream.listen((duration) {
+    _durationSubscription = _audioPlayer.durationStream.listen((duration) {
       setState(() {
         _totalDuration = duration ?? Duration.zero;
       });
@@ -79,17 +76,16 @@ class _TestResultPageState extends State<TestResultPage> {
     _playerStateSubscription?.cancel();
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
-    _audioSystemPlayer.dispose();
-    _audioMicPlayer.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
   // 시간 형식 변환 헬퍼 함수
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String minutes = twoDigits(duration.inMinutes.remainder(60));
-    String seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
   @override
@@ -1129,6 +1125,112 @@ class _TestResultPageState extends State<TestResultPage> {
               return rowWidget;
             }
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAudioPlayer(String audioMicPath, String audioSystemPath) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Text('녹음 파일 재생', style: TextStyle(fontWeight: FontWeight.bold)),
+
+        // 마이크/시스템 선택 토글
+        Row(
+          children: [
+            const Text('측정 타입 : '),
+            ToggleButtons(
+              isSelected: [_isVisualSelected, !_isVisualSelected],
+              onPressed: (index) async {
+                // 재생 중인 경우 일시 중지
+                if (_audioPlayer.playing) {
+                  await _audioPlayer.pause();
+                }
+
+                setState(() {
+                  _isVisualSelected = index == 0;
+                  _currentPlayingPath = ''; // 경로 초기화해서 새 파일 로드하도록
+                });
+              },
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text('시각'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text('청각'),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            const Text('녹음 소스: '),
+            ToggleButtons(
+              isSelected: [_isMicSelected, !_isMicSelected],
+              onPressed: (index) async {
+                // 재생 중인 경우 일시 중지
+                if (_audioPlayer.playing) {
+                  await _audioPlayer.pause();
+                }
+
+                setState(() {
+                  _isMicSelected = index == 0;
+                  _currentPlayingPath = ''; // 경로 초기화해서 새 파일 로드하도록
+                });
+              },
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text('마이크'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text('시스템'),
+                ),
+              ],
+            ),
+          ],
+        ),
+
+        // 통합된 오디오 재생 컨트롤
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            IconButton(
+              icon: Icon(_audioPlayer.playing ? Icons.pause : Icons.play_arrow),
+              onPressed: () async {
+                String selectedPath = _isMicSelected ? audioMicPath : audioSystemPath;
+
+                if (_audioPlayer.playing) {
+                  await _audioPlayer.pause();
+                } else {
+                  // 새로운 파일 재생
+                  if (_currentPlayingPath != selectedPath) {
+                    await _audioPlayer.setFilePath(selectedPath);
+                    setState(() {
+                      _currentPlayingPath = selectedPath;
+                    });
+                  }
+                  await _audioPlayer.play();
+                }
+                setState(() {});
+              },
+            ),
+            Expanded(
+              child: Slider(
+                value: _audioPlayer.position.inMilliseconds.toDouble(),
+                max: _audioPlayer.duration?.inMilliseconds.toDouble() ?? 1.0,
+                onChanged: (value) {
+                  _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                },
+              ),
+            ),
+            Text(_formatDuration(_audioPlayer.position)),
+            const Text(' / '),
+            Text(_formatDuration(_audioPlayer.duration ?? Duration.zero)),
+          ],
         ),
       ],
     );

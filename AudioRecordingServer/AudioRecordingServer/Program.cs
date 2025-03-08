@@ -33,8 +33,11 @@ class AudioRecordingServer
     private static DateTime recordingActualStartTime;
     private static int initialBufferSize = 16000; // 약 0.1초 분량의 초기 버퍼 크기 (추정치)
 
-    static void Main()
+    static void Main(string[] args)
     {
+        Console.OutputEncoding = Encoding.UTF8; // 콘솔 출력 인코딩 설정
+        Console.InputEncoding = Encoding.UTF8;  // 콘솔 입력 인코딩 설정
+
         TcpListener? server = null;
         try
         {
@@ -61,8 +64,8 @@ class AudioRecordingServer
                 Console.WriteLine("클라이언트가 연결되었습니다.");
 
                 // 클라이언트 처리를 위한 쓰레드 생성
-                Thread clientThread = new Thread(new ParameterizedThreadStart(HandleClient));
-                clientThread.Start(client);
+                Thread clientThread = new Thread(() => HandleClient(client));
+                clientThread.Start();
             }
         }
         catch (Exception e)
@@ -273,11 +276,34 @@ class AudioRecordingServer
 
         try
         {
-            // 대상 디렉토리가 없으면 생성
-            string directory = Path.GetDirectoryName(targetFilePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            // 한글 경로 처리를 위한 수정
+            try
             {
-                Directory.CreateDirectory(directory);
+                // 경로 유효성 검사
+                if (!IsValidPath(targetFilePath))
+                {
+                    Console.WriteLine($"경고: 유효하지 않은 대상 파일 경로. 기본 경로로 대체됩니다.");
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    targetFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                                               $"AudioRecording_{timestamp}.wav");
+                    Console.WriteLine($"수정된 대상 경로: {targetFilePath}");
+                }
+
+                // 대상 디렉토리가 없으면 생성
+                string directory = Path.GetDirectoryName(targetFilePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                    Console.WriteLine($"대상 디렉토리 생성됨: {directory}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"대상 경로 처리 중 오류: {ex.Message}");
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                targetFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                                           $"AudioRecording_{timestamp}.wav");
+                Console.WriteLine($"대체 대상 경로: {targetFilePath}");
             }
 
             // 개별 파일 저장 경로 생성
@@ -362,6 +388,25 @@ class AudioRecordingServer
         catch (Exception ex)
         {
             Console.WriteLine($"파일 처리 중 오류 발생: {ex.Message}");
+
+            // 오류 발생 시 백업 저장
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string backupPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    $"AudioRecording_Backup_{timestamp}.wav");
+
+                if (File.Exists(tempSystemAudioFile))
+                {
+                    File.Copy(tempSystemAudioFile, backupPath, true);
+                    Console.WriteLine($"백업 파일 저장됨: {backupPath}");
+                }
+            }
+            catch (Exception backupEx)
+            {
+                Console.WriteLine($"백업 저장 중 오류: {backupEx.Message}");
+            }
         }
 
         Console.WriteLine("녹음 중지됨");
@@ -491,37 +536,73 @@ class AudioRecordingServer
         Console.WriteLine($"파일 변환 완료: {outputFile}");
     }
 
-    static void HandleClient(object obj)
+    static void HandleClient(TcpClient client)
     {
-        TcpClient client = (TcpClient)obj;
         NetworkStream stream = client.GetStream();
-
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[4096]; // 충분한 버퍼 크기 확보
         int bytesRead;
 
         try
         {
-            // 클라이언트로부터 데이터 수신
-            while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) != 0)
+            // 연결된 클라이언트 정보 출력
+            Console.WriteLine($"클라이언트 연결됨: {((IPEndPoint)client.Client.RemoteEndPoint).Address}");
+
+            while (client.Connected)
             {
-                string data = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                Console.WriteLine("수신한 명령: {0}", data);
+                bytesRead = 0;
+                try
+                {
+                    // 데이터 수신 대기
+                    bytesRead = stream.Read(buffer, 0, buffer.Length);
+                }
+                catch (IOException)
+                {
+                    // 연결이 끊어진 경우
+                    break;
+                }
+
+                if (bytesRead == 0)
+                {
+                    // 연결이 끊어진 경우
+                    break;
+                }
+
+                // UTF-8 인코딩으로 데이터 해석 (한글 지원)
+                string command = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
+                Console.WriteLine($"수신된 명령: {command}");
 
                 // 명령 처리
-                string response = ProcessCommand(data);
+                string response = ProcessCommand(command);
 
-                // 응답 전송
-                byte[] responseBytes = Encoding.ASCII.GetBytes(response);
-                stream.Write(responseBytes, 0, responseBytes.Length);
+                // UTF-8 인코딩으로 응답 전송 (한글 지원)
+                byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                try
+                {
+                    stream.Write(responseBytes, 0, responseBytes.Length);
+                    Console.WriteLine($"응답 전송: {response}");
+                }
+                catch (IOException)
+                {
+                    // 전송 중 오류 발생
+                    break;
+                }
             }
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            Console.WriteLine("Exception: {0}", e);
+            Console.WriteLine($"클라이언트 처리 중 예외 발생: {ex.Message}");
         }
         finally
         {
+            // 연결 종료 및 리소스 정리
             client.Close();
+            Console.WriteLine("클라이언트 연결 종료");
+
+            // 녹음 중이었다면 중지
+            if (isRecording)
+            {
+                StopRecording();
+            }
         }
     }
 
@@ -536,6 +617,39 @@ class AudioRecordingServer
             if (colonIndex > 0 && colonIndex < command.Length - 1)
             {
                 filePath = command.Substring(colonIndex + 1);
+
+                // 한글 경로 처리를 위한 수정
+                try
+                {
+                    // 경로에 디렉토리가 없으면, 만들어줌
+                    string directory = Path.GetDirectoryName(filePath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                        Console.WriteLine($"디렉토리 생성됨: {directory}");
+                    }
+
+                    // 경로 확인
+                    Console.WriteLine($"녹음 파일 경로: {filePath}");
+
+                    // 잘못된 경로인지 검증
+                    if (!IsValidPath(filePath))
+                    {
+                        Console.WriteLine($"경고: 유효하지 않은 파일 경로. 기본 경로로 대체됩니다.");
+                        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                                               $"AudioRecording_{timestamp}.wav");
+                        Console.WriteLine($"수정된 경로: {filePath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"경로 처리 중 오류: {ex.Message}");
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                                           $"AudioRecording_{timestamp}.wav");
+                    Console.WriteLine($"대체 경로: {filePath}");
+                }
             }
 
             // 녹음 시작
@@ -576,5 +690,36 @@ class AudioRecordingServer
         }
 
         return "UNKNOWN_COMMAND";
+    }
+
+    // 한글 경로 유효성 검사 함수 추가
+    static bool IsValidPath(string path)
+    {
+        try
+        {
+            // Path.GetFullPath에서 예외가 발생하지 않으면 유효한 경로로 간주
+            string fullPath = Path.GetFullPath(path);
+
+            // 경로 길이 체크 (Windows 260자 제한)
+            if (fullPath.Length > 240) // 조금 여유 둠
+            {
+                Console.WriteLine("경로가 너무 깁니다.");
+                return false;
+            }
+
+            // 경로에 사용할 수 없는 문자가 있는지 확인
+            char[] invalidChars = Path.GetInvalidPathChars();
+            if (path.IndexOfAny(invalidChars) >= 0)
+            {
+                Console.WriteLine("경로에 사용할 수 없는 문자가 포함되어 있습니다.");
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
