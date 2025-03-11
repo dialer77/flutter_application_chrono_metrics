@@ -36,7 +36,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
   int taskCount = 1;
   final maxTaskCount = 4;
   int currentRound = 1;
-  final int maxRounds = 5;
+  final int maxRounds = 2;
 
   FocusNode focusNode = FocusNode();
   bool isPracticeMode = true;
@@ -630,7 +630,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
             isPracticeMode ? '연습 모드' : '본실험 모드',
             style: TextStyle(
               color: isPracticeMode ? Colors.blue : Colors.purple,
-              fontSize: 24,
+              fontSize: 48,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -639,7 +639,7 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
             '시작하려면 스페이스를 눌러주세요',
             style: TextStyle(
               color: isPracticeMode ? Colors.blue : Colors.purple,
-              fontSize: 16,
+              fontSize: 24,
             ),
             textAlign: TextAlign.center,
           ),

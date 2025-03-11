@@ -50,7 +50,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   final maxTaskCount = 5;
 
   int currentRound = 1;
-  final int maxRounds = 4;
+  final int maxRounds = 2;
 
   TestResultTimeGeneration testResultTimeGeneration = TestResultTimeGeneration(userInfo: UserInfomation(userNumber: '', name: ''));
   TestResultTimeGeneration practiceResultTimeGeneration = TestResultTimeGeneration(userInfo: UserInfomation(userNumber: '', name: ''));
@@ -273,13 +273,14 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   }
 
   TextStyle getDisplayStyle() {
-    if (isStarted && !isShowingTarget && isMeasuring) {
+    if (isStarted) {
       return const TextStyle(
-        fontSize: 48,
+        fontSize: 150,
         fontWeight: FontWeight.bold,
         color: Colors.black, // 검정 원일 때는 검정색
       );
     }
+
     return const TextStyle(
       fontSize: 48,
       fontWeight: FontWeight.bold,
@@ -399,9 +400,9 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                           const SizedBox(height: 20),
                           Text(
                             isPracticeMode ? '추가적인 연습을 진행시에는 스페이스바를 눌러 다시 시작해주세요.' : '스페이스바를 눌러 다음 검사를 시작해주세요.',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
+                            style: TextStyle(
+                              fontSize: isPracticeMode ? 20 : 48,
+                              color: isPracticeMode ? Colors.grey : Colors.black,
                             ),
                           ),
                         ],
@@ -420,7 +421,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                           isPracticeMode ? '연습 모드' : '본실험 모드',
                           style: TextStyle(
                             color: isPracticeMode ? Colors.blue : Colors.purple,
-                            fontSize: 24,
+                            fontSize: 48,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -482,9 +483,8 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
             Text(
               lowerText,
               style: const TextStyle(
-                fontSize: 16, // 원하는 스타일로 변경
+                fontSize: 24, // 원하는 스타일로 변경
                 color: Colors.blue,
-                fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
@@ -518,7 +518,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   Widget testGuideText() {
     TextStyle textStyle = TextStyle(
       color: isPracticeMode ? Colors.blue : Colors.purple,
-      fontSize: 20,
+      fontSize: 28,
     );
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,

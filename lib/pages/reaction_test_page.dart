@@ -32,7 +32,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   final Random random = Random();
   FocusNode focusNode = FocusNode();
   int currentRound = 0;
-  final int maxRounds = 5;
+  final int maxRounds = 4;
   late AudioPlayer player;
   late AudioPlayer startSoundPlayer; // 녹음 시작용 플레이어 추가
   final TextEditingController _nameController = TextEditingController();
@@ -389,7 +389,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
                     size: MediaQuery.of(context).size.height * 0.3,
                     color: Colors.red,
                   )
-                : testGuideText(24, Colors.blue),
+                : testGuideText(36, Colors.blue),
           ),
         ),
         footerWidget: Center(
@@ -441,7 +441,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
       case TestState.idle:
         return Center(
           child: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.5, // Adjust width as needed
+            width: MediaQuery.of(context).size.width * 0.7, // Adjust width as needed
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,

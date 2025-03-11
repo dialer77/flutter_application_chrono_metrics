@@ -408,12 +408,12 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
                                   '박자에 맞춰 1초의 소리를 기억해주세요.\n'
                                   '충분히 연습하셨으면 스페이스바를 눌러주세요.\n'
                                   '한 번 연습해보실께요.'
-                              : '지금부터 화면에 띵 소리와 함께 추가 양쪽으로 움직일 거예요\n'
-                                  '한번 움직일 때 1초입니다. 박자에 맞춰 기억해주세요\n'
+                              : '지금부터 화면에 띵 소리와 함께 추가 양쪽으로 움직일 거예요\n\n'
+                                  '한번 움직일 때 1초입니다. 박자에 맞춰\n기억해주세요\n\n'
                                   '충분히 연습하셨으면 스페이스바를 눌러주세요.\n'
                                   '한 번 연습해보실께요.',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 18,
                             color: Colors.black87,
                           ),
                         ),

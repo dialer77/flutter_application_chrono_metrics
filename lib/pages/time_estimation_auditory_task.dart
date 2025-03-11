@@ -36,7 +36,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   int taskCount = 1;
   final maxTaskCount = 4;
   int currentRound = 1;
-  final int maxRounds = 5;
+  final int maxRounds = 2;
 
   FocusNode focusNode = FocusNode();
   bool isPracticeMode = true;
@@ -58,6 +58,10 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   // 테스트 세션마다 사용할 변수들
   String? _sessionAudioPath;
   final List<String> _audioSequence = [];
+
+  // 새로운 상태 변수 추가
+  Duration _currentPlayTime = Duration.zero;
+  Timer? _displayTimer;
 
   @override
   void initState() {
@@ -156,6 +160,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
       _stopRecording();
     }
 
+    _displayTimer?.cancel();
     super.dispose();
   }
 
@@ -197,39 +202,65 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     // 움직임 오디오 파일 기록
     _audioSequence.add('longMove.wav');
 
-    _movementAudioPlayer.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed && _isPlayingSound) {
-        _movementAudioPlayer.seek(Duration.zero);
-        _movementAudioPlayer.play();
+    // 현재 재생 시작 시간 기록
+    final startTime = DateTime.now();
 
-        // 반복 재생 발생할 때마다 기록 (선택 사항)
-        _audioSequence.add('longMove.wav');
+    // 목표 종료 시간 계산
+    final targetEndTime = startTime.add(Duration(seconds: targetSeconds));
+
+    // 디스플레이 타이머 시작
+    _displayTimer?.cancel();
+    setState(() => _currentPlayTime = Duration.zero);
+    _displayTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (mounted) {
+        setState(() {
+          _currentPlayTime = DateTime.now().difference(startTime);
+        });
       }
     });
 
     _movementAudioPlayer.play();
 
-    _finishTimer = Timer(Duration(seconds: targetSeconds), () {
-      _movementAudioPlayer.stop();
+    // 플레이어 상태 감시
+    StreamSubscription<Duration>? positionSubscription;
 
-      if (_isPlayingSound) {
-        _finishAudioPlayer.setAsset('assets/finish.mp3');
-        _finishAudioPlayer.setVolume(1.0);
-        _finishAudioPlayer.play();
+    // 재생 위치 모니터링
+    positionSubscription = _movementAudioPlayer.positionStream.listen((position) {
+      final now = DateTime.now();
 
-        // 종료 오디오 파일 기록
-        _audioSequence.add('finish.mp3');
+      // 목표 시간에 도달했는지 확인
+      if (now.isAfter(targetEndTime) && _isPlayingSound) {
+        _movementAudioPlayer.stop();
+        positionSubscription?.cancel();
 
-        _finishAudioPlayer.playerStateStream.listen((state) {
-          if (state.processingState == ProcessingState.completed) {
-            if (_isPlayingSound && mounted) {
-              setState(() {
-                _isPlayingSound = false;
-              });
-              _endTask();
-            }
-          }
-        });
+        // 종료 소리 재생
+        _playFinishSound();
+      }
+    });
+  }
+
+  void _playFinishSound() {
+    if (!_isPlayingSound) return;
+
+    // 디스플레이 타이머 정지
+    _displayTimer?.cancel();
+    _displayTimer = null;
+
+    _finishAudioPlayer.setAsset('assets/finish.mp3');
+    _finishAudioPlayer.setVolume(1.0);
+    _finishAudioPlayer.play();
+
+    // 종료 오디오 파일 기록
+    _audioSequence.add('finish.mp3');
+
+    _finishAudioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        if (_isPlayingSound && mounted) {
+          setState(() {
+            _isPlayingSound = false;
+          });
+          _endTask();
+        }
       }
     });
   }
@@ -658,7 +689,7 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
             isPracticeMode ? '연습 모드' : '본실험 모드',
             style: TextStyle(
               color: isPracticeMode ? Colors.blue : Colors.purple,
-              fontSize: 24,
+              fontSize: 48,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -667,13 +698,14 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
             '시작하려면 스페이스를 눌러주세요',
             style: TextStyle(
               color: isPracticeMode ? Colors.blue : Colors.purple,
-              fontSize: 16,
+              fontSize: 24,
             ),
             textAlign: TextAlign.center,
           ),
         ],
       );
     } else {
+      // 재생 중일 때의 UI
       return Container();
     }
   }
