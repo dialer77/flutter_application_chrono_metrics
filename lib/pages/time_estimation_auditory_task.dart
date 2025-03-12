@@ -396,14 +396,12 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
         _startTask();
       }
     } else {
-      setState(() {
-        isStarted = false;
-        _isPlayingSound = false;
-      });
       if (isPracticeMode) {
+        setState(() {
+          isStarted = false;
+          _isPlayingSound = false;
+        });
         _metronomeController.stop();
-      } else {
-        _endTask();
       }
     }
   }

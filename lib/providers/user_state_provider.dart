@@ -241,10 +241,17 @@ class UserStateProvider extends ChangeNotifier {
           continue;
         }
         final contentSplit = line.split(',');
-        testResultTimeGeneration.addTestData(TestDataTimeGeneration(
-          targetTime: int.parse(contentSplit[1]),
-          elapsedTime: int.parse(contentSplit[2]),
-        ));
+        if (contentSplit.length == 3) {
+          testResultTimeGeneration.addTestData(TestDataTimeGeneration(
+            targetTime: int.parse(contentSplit[1]),
+            elapsedTime: int.parse(contentSplit[2]),
+          ));
+        } else {
+          testResultTimeGeneration.addTestData(TestDataTimeGeneration(
+            targetTime: int.parse(contentSplit[2]),
+            elapsedTime: int.parse(contentSplit[3]),
+          ));
+        }
       }
       return testResultTimeGeneration;
     }
@@ -346,10 +353,17 @@ class UserStateProvider extends ChangeNotifier {
         continue;
       }
       final contentSplit = line.split(',');
-      testResultTimeEstimationVisual.addTestData(TestDataTimeEstimationVisual(
-        targetTime: int.parse(contentSplit[1]),
-        elapsedTime: int.parse(contentSplit[2]),
-      ));
+      if (contentSplit.length == 3) {
+        testResultTimeEstimationVisual.addTestData(TestDataTimeEstimationVisual(
+          targetTime: int.parse(contentSplit[1]),
+          elapsedTime: int.parse(contentSplit[2]),
+        ));
+      } else {
+        testResultTimeEstimationVisual.addTestData(TestDataTimeEstimationVisual(
+          targetTime: int.parse(contentSplit[2]),
+          elapsedTime: int.parse(contentSplit[3]),
+        ));
+      }
     }
     return testResultTimeEstimationVisual;
   }
@@ -436,10 +450,18 @@ class UserStateProvider extends ChangeNotifier {
         continue;
       }
       final contentSplit = line.split(',');
-      testResultTimeEstimationAuditory.addTestData(TestDataTimeEstimationAuditory(
-        targetTime: int.parse(contentSplit[1]),
-        elapsedTime: int.parse(contentSplit[2]),
-      ));
+
+      if (contentSplit.length == 3) {
+        testResultTimeEstimationAuditory.addTestData(TestDataTimeEstimationAuditory(
+          targetTime: int.parse(contentSplit[1]),
+          elapsedTime: int.parse(contentSplit[2]),
+        ));
+      } else {
+        testResultTimeEstimationAuditory.addTestData(TestDataTimeEstimationAuditory(
+          targetTime: int.parse(contentSplit[2]),
+          elapsedTime: int.parse(contentSplit[3]),
+        ));
+      }
     }
     return testResultTimeEstimationAuditory;
   }
@@ -493,8 +515,6 @@ class UserStateProvider extends ChangeNotifier {
     }
   }
 
-  /// 반응 테스트의 결과 파일에서 테스트 결과 목록을 로드합니다.
-  /// 각 테스트 세션을 날짜별로 그룹화하여 반환합니다.
   Map<String, List<Map<String, dynamic>>> loadReactionResultsForDrawer(UserInfomation? userInfo) {
     UserInfomation loadUserInfo = userInfo ?? getUserInfo!;
 
