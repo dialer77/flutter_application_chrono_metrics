@@ -70,7 +70,7 @@ flutter:
     - assets/start.mp3
     - assets/movement.wav
     - assets/finish.mp3
-    - assets/longMove.wav
+    - assets/longMove_30.wav
 
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg

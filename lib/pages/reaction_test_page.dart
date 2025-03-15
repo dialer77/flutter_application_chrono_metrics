@@ -273,7 +273,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
         testState = TestState.idle;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('너무 일찍 눌렀습니다! 다시 시도하세요.')),
+        const SnackBar(content: Text('너무 일찍 눌렀습니다! 다시 시도하세요.', style: CommonUtil.snackBarTextStyle)),
       );
     } else if (testState == TestState.testing) {
       final endTime = DateTime.now();

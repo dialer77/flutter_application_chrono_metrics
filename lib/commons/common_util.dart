@@ -4,6 +4,10 @@ import '../providers/user_state_provider.dart';
 import '../datas/user_infomation.dart';
 
 class CommonUtil {
+  static const TextStyle snackBarTextStyle = TextStyle(
+    fontSize: 36,
+  );
+
   static Future<void> showUserInfoDialog({
     required BuildContext context,
     required TextEditingController nameController,
@@ -23,7 +27,7 @@ class CommonUtil {
         void handleSubmit() {
           if (nameController.text.isEmpty || userNumberController.text.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('모든 정보를 입력해주세요.')),
+              const SnackBar(content: Text('모든 정보를 입력해주세요.', style: snackBarTextStyle)),
             );
             return;
           }

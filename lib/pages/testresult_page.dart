@@ -348,7 +348,7 @@ class _TestResultPageState extends State<TestResultPage> {
                         } catch (e) {
                           print('폴더 열기 실패: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                            SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                           );
                         }
                       },
@@ -370,7 +370,7 @@ class _TestResultPageState extends State<TestResultPage> {
                         } catch (e) {
                           print('폴더 열기 실패: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                            SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                           );
                         }
                       },
@@ -580,7 +580,7 @@ class _TestResultPageState extends State<TestResultPage> {
                                 } catch (e) {
                                   print('폴더 열기 실패: $e');
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('폴더 열기 실패: $e')),
+                                    SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                                   );
                                 }
                               },
@@ -602,7 +602,7 @@ class _TestResultPageState extends State<TestResultPage> {
                                 } catch (e) {
                                   print('폴더 열기 실패: $e');
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('폴더 열기 실패: $e')),
+                                    SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                                   );
                                 }
                               },
@@ -812,7 +812,7 @@ class _TestResultPageState extends State<TestResultPage> {
                         } catch (e) {
                           print('폴더 열기 실패: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                            SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                           );
                         }
                       },
@@ -834,7 +834,7 @@ class _TestResultPageState extends State<TestResultPage> {
                         } catch (e) {
                           print('폴더 열기 실패: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                            SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                           );
                         }
                       },
@@ -992,7 +992,7 @@ class _TestResultPageState extends State<TestResultPage> {
                         } catch (e) {
                           print('폴더 열기 실패: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                            SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                           );
                         }
                       },
@@ -1014,7 +1014,7 @@ class _TestResultPageState extends State<TestResultPage> {
                         } catch (e) {
                           print('폴더 열기 실패: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('폴더 열기 실패: $e')),
+                            SnackBar(content: Text('폴더 열기 실패: $e', style: CommonUtil.snackBarTextStyle)),
                           );
                         }
                       },

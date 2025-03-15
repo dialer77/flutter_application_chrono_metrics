@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_chrono_metrics/commons/common_util.dart';
 import 'package:flutter_application_chrono_metrics/pages/testresult_page.dart';
 import 'package:flutter_application_chrono_metrics/pages/time_estimation_visual_task.dart';
 import 'package:flutter_application_chrono_metrics/pages/time_estimation_auditory_task.dart';
@@ -100,7 +101,7 @@ class _MainMenuPageState extends State<MainMenuPage> {
                 } else {
                   // 아직 저장된 정보가 없으면 앱 종료 가능하게 안내
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('사용자 정보를 입력해주세요')),
+                    const SnackBar(content: Text('사용자 정보를 입력해주세요', style: CommonUtil.snackBarTextStyle)),
                   );
                 }
               },
@@ -122,11 +123,11 @@ class _MainMenuPageState extends State<MainMenuPage> {
 
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('사용자 정보가 저장되었습니다')),
+                    const SnackBar(content: Text('사용자 정보가 저장되었습니다', style: CommonUtil.snackBarTextStyle)),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('이름과 학번/ID를 모두 입력해주세요')),
+                    const SnackBar(content: Text('이름과 학번/ID를 모두 입력해주세요', style: CommonUtil.snackBarTextStyle)),
                   );
                 }
               },

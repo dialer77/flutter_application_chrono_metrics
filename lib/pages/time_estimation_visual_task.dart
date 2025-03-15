@@ -283,17 +283,62 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
           currentRound++;
           taskTimeList.shuffle();
         } else {
-          currentRound = 1;
+          // 모든 테스트가 완료되면 먼저 결과 저장
+          if (!isPracticeMode) {
+            // 녹음 중지 및 결과 저장 처리
+            if (_isRecording) {
+              _stopRecording();
+            }
+            _saveTestResults();
 
-          // 모든 테스트가 완료되면 녹음 중지 및 결과 저장
-          if (!isPracticeMode && _isRecording) {
-            _stopRecording();
+            // 결과 저장 후 완료 다이얼로그 표시
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (BuildContext context) {
+                return Dialog(
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          '검사 완료',
+                          style: TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        const Text(
+                          '검사가 완료되었습니다.\n수고하셨습니다.',
+                          style: TextStyle(fontSize: 36),
+                          textAlign: TextAlign.center,
+                        ),
+                        const Spacer(),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                            textStyle: const TextStyle(fontSize: 20),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
+                            testResult = TestResultTimeEstimationVisual(userInfo: userInfo!);
+                            testResult.setTaskCount(maxTaskCount);
+                          },
+                          child: const Text('확인'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
           }
-
-          _saveTestResults();
-          final userInfo = Provider.of<UserStateProvider>(context, listen: false).getUserInfo;
-          testResult = TestResultTimeEstimationVisual(userInfo: userInfo!);
-          testResult.setTaskCount(maxTaskCount);
+          currentRound = 1;
         }
       }
       isStarted = false;
@@ -311,7 +356,12 @@ class _TimeEstimationVisualTaskPageState extends State<TimeEstimationVisualTaskP
     );
     testResultList = Provider.of<UserStateProvider>(context, listen: false).loadTestResultList(AppTestType.timeEstimationVisual, userInfo);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('모든 테스트가 완료되었습니다. 결과가 저장되었습니다.')),
+      const SnackBar(
+        content: Text(
+          '모든 테스트가 완료되었습니다. 결과가 저장되었습니다.',
+          style: CommonUtil.snackBarTextStyle,
+        ),
+      ),
     );
   }
 

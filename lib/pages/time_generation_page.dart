@@ -34,6 +34,7 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
   bool isStarted = false;
   bool isShowingTarget = false; // 목표 시간 표시 상태
   bool isMeasuring = false; // 시간 측정 중 상태
+
   DateTime? startTime;
 
   final TextEditingController _nameController = TextEditingController();
@@ -373,10 +374,18 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (!isStarted && taskCount == maxTaskCount) ...[
-                          Text(
-                            '$currentRound 라운드 종료',
-                            style: getDisplayStyle(),
-                          ),
+                          if (currentRound < maxRounds) ...[
+                            Text(
+                              '$currentRound 라운드 종료',
+                              style: getDisplayStyle(),
+                            ),
+                          ],
+                          if (currentRound == maxRounds) ...[
+                            Text(
+                              '검사가 종료되었습니다.',
+                              style: getDisplayStyle(),
+                            ),
+                          ],
                         ],
                         (() {
                           if (isShowingTarget || !isStarted) {
@@ -397,14 +406,26 @@ class _TimeGenerationPageState extends State<TimeGenerationPage> {
                           }
                         }()),
                         if (isStarted == false) ...[
-                          const SizedBox(height: 20),
-                          Text(
-                            isPracticeMode ? '추가적인 연습을 진행시에는 스페이스바를 눌러 다시 시작해주세요.' : '스페이스바를 눌러 다음 검사를 시작해주세요.',
-                            style: TextStyle(
-                              fontSize: isPracticeMode ? 20 : 48,
-                              color: isPracticeMode ? Colors.grey : Colors.black,
+                          if (currentRound < maxRounds) ...[
+                            const SizedBox(height: 20),
+                            Text(
+                              isPracticeMode ? '추가적인 연습을 진행시에는 스페이스바를 눌러 다시 시작해주세요.' : '스페이스바를 눌러 다음 검사를 시작해주세요.',
+                              style: TextStyle(
+                                fontSize: isPracticeMode ? 20 : 48,
+                                color: isPracticeMode ? Colors.grey : Colors.black,
+                              ),
                             ),
-                          ),
+                          ],
+                          if (currentRound == maxRounds) ...[
+                            const SizedBox(height: 20),
+                            const Text(
+                              '새로운 검사를 시작하려면 스페이스바를 눌러주세요.',
+                              style: TextStyle(
+                                fontSize: 36,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
                         ],
                       ],
                     )
