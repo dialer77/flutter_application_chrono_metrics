@@ -16,6 +16,18 @@ import 'package:intl/intl.dart';
 
 class UserStateProvider extends ChangeNotifier {
   UserInfomation? userInfo; // nullable로 선언
+  // 볼륨 저장을 위한 변수 추가
+  double _movementVolume = 0.5; // 기본값 0.5
+
+  // 볼륨 getter
+  double get movementVolume => _movementVolume;
+
+  // 볼륨 setter
+  void setMovementVolume(double volume) {
+    _movementVolume = volume;
+    _saveVolumeSettings(); // 볼륨 설정 저장
+    notifyListeners();
+  }
 
   // userInfo getter
   UserInfomation? get getUserInfo => userInfo;
@@ -23,7 +35,55 @@ class UserStateProvider extends ChangeNotifier {
   // 유저 정보 설정
   void setUserInfo(UserInfomation info) {
     userInfo = info;
+    _loadVolumeSettings(); // 사용자 변경 시 볼륨 설정 로드
     notifyListeners();
+  }
+
+  // 볼륨 설정 저장
+  void _saveVolumeSettings() async {
+    // 사용자 정보가 없으면 저장하지 않음
+    if (userInfo == null) return;
+
+    try {
+      // 볼륨 설정 파일 경로
+      String basePath = '${Directory.current.path}\\Data\\Settings';
+
+      // Settings 폴더가 없으면 생성
+      Directory baseDir = Directory(basePath);
+      if (!await baseDir.exists()) {
+        await baseDir.create(recursive: true);
+      }
+
+      // 사용자별 볼륨 설정 파일 경로
+      String filePath = '$basePath\\${userInfo!.userNumber}_${userInfo!.name}_volume.txt';
+
+      // 볼륨 값 저장
+      await File(filePath).writeAsString(_movementVolume.toString());
+    } catch (e) {
+      print('볼륨 설정 저장 오류: $e');
+    }
+  }
+
+  // 볼륨 설정 로드
+  void _loadVolumeSettings() async {
+    // 사용자 정보가 없으면 로드하지 않음
+    if (userInfo == null) return;
+
+    try {
+      // 볼륨 설정 파일 경로
+      String filePath = '${Directory.current.path}\\Data\\Settings\\${userInfo!.userNumber}_${userInfo!.name}_volume.txt';
+
+      // 파일이 존재하는 경우에만 로드
+      if (await File(filePath).exists()) {
+        String volumeStr = await File(filePath).readAsString();
+        _movementVolume = double.tryParse(volumeStr) ?? 0.5;
+        notifyListeners();
+      }
+    } catch (e) {
+      print('볼륨 설정 로드 오류: $e');
+      // 오류 발생 시 기본값 사용
+      _movementVolume = 0.5;
+    }
   }
 
   TestResultReaction loadTestResultReaction(String filePath, UserInfomation userInfo) {

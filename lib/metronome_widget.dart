@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_chrono_metrics/providers/user_state_provider.dart';
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
+import 'package:provider/provider.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 
 class MetronomeWidget extends StatefulWidget {
   /// 초기 BPM 값
@@ -83,19 +87,34 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
 
     // 컨트롤러가 있으면 연결
     widget.controller?._state = this;
+    // 볼륨 초기값 설정 - 저장된 값이 있으면 사용
   }
 
   Future<void> _loadSound() async {
     try {
+      // 프로젝트 실행 디렉토리 경로
+      final String projectDir = Directory.current.path;
+
+      // assets 폴더 경로
+      final String assetsDir = path.join(projectDir, 'data\\flutter_assets\\assets');
+
       if (widget.isAuditoryMode) {
-        // 청각 모드용 사운드 로드
-        await _startAudioPlayer.setAsset('assets/start.mp3');
-        await _movementAudioPlayer.setAsset('assets/movement.wav');
-        await _completionAudioPlayer.setAsset('assets/finish.mp3');
+        // 청각 모드용 사운드 로드 - 파일 경로로 직접 로드
+        final String startPath = path.join(assetsDir, 'start.mp3');
+        final String movementPath = path.join(assetsDir, 'movement.wav');
+        final String finishPath = path.join(assetsDir, 'finish.mp3');
+
+        await _startAudioPlayer.setFilePath(startPath);
+        await _movementAudioPlayer.setFilePath(movementPath);
+        await _completionAudioPlayer.setFilePath(finishPath);
       } else if (widget.customSoundPath != null) {
-        await _audioPlayer.setAsset('assets/${widget.customSoundPath}');
+        // 커스텀 사운드 경로가 있을 때
+        final String customPath = path.join(assetsDir, widget.customSoundPath!);
+        await _audioPlayer.setFilePath(customPath);
       } else {
-        await _audioPlayer.setAsset('assets/beep.mp3');
+        // 기본 사운드 사용
+        final String beepPath = path.join(assetsDir, 'beep.mp3');
+        await _audioPlayer.setFilePath(beepPath);
       }
     } catch (e) {
       debugPrint('메트로놈 사운드 로드 실패: $e');
@@ -196,6 +215,10 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
   void _playMovementSound() async {
     try {
       await _movementAudioPlayer.seek(Duration.zero);
+      // 설정된 볼륨 적용
+      final userStateProvider = Provider.of<UserStateProvider>(context, listen: false);
+      await _movementAudioPlayer.setVolume(userStateProvider.movementVolume);
+      // 볼륨 값을 컨트롤러에 저장
       await _movementAudioPlayer.play();
     } catch (e) {
       debugPrint('이동 사운드 재생 실패: $e');
@@ -227,6 +250,8 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final userStateProvider = Provider.of<UserStateProvider>(context, listen: false);
+
     return Container(
       width: widget.width,
       height: widget.height,
@@ -352,6 +377,114 @@ class _MetronomeWidgetState extends State<MetronomeWidget> with SingleTickerProv
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: widget.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // 볼륨 조절 슬라이더를 종료음 아래로 이동하고 세로 방향으로 변경
+                if (widget.isAuditoryMode)
+                  Positioned(
+                    top: 100, // 종료음 버튼 아래로 이동
+                    right: widget.width * 0.3, // 종료음 버튼 위치에 맞춤
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: widget.width * 0.6,
+                          height: widget.height * 0.8, // 세로로 충분한 높이 제공
+                          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(12.0),
+                            border: Border.all(
+                              color: widget.primaryColor.withOpacity(0.4),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                '볼륨',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.primaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Icon(
+                                Icons.volume_up,
+                                color: widget.primaryColor,
+                                size: 20,
+                              ),
+                              SizedBox(
+                                child: SliderTheme(
+                                  data: const SliderThemeData(
+                                    trackHeight: 3.0,
+                                    thumbShape: RoundSliderThumbShape(
+                                      enabledThumbRadius: 5.0,
+                                    ),
+                                  ),
+                                  child: RotatedBox(
+                                    quarterTurns: 3, // 슬라이더를 세로로 회전
+                                    child: Slider(
+                                      value: userStateProvider.movementVolume,
+                                      min: 0.0,
+                                      max: 1.0,
+                                      divisions: 10,
+                                      activeColor: widget.primaryColor,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          userStateProvider.setMovementVolume(value);
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.volume_down,
+                                color: widget.primaryColor,
+                                size: 25,
+                              ),
+                            ],
+                          ),
+                        ),
+                        // 재생 버튼 추가 - 볼륨 컨트롤 우측에 배치
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: widget.height * 0.8,
+                          width: widget.width * 0.2,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              InkWell(
+                                onTap: _playMovementSound,
+                                child: Container(
+                                  padding: const EdgeInsets.all(8.0),
+                                  decoration: BoxDecoration(
+                                    color: widget.primaryColor.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_circle_outline,
+                                    color: Colors.white,
+                                    size: 45,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '순음',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.primaryColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -563,6 +696,9 @@ class PyramidMetronomePainter extends CustomPainter {
 /// 메트로놈 컨트롤러 - 외부에서 메트로놈을 제어하기 위한 클래스
 class MetronomeController {
   _MetronomeWidgetState? _state;
+
+  // 볼륨 값 저장을 위한 변수 추가
+  final double _movementVolume = 0.5;
 
   /// 메트로놈 시작
   void start() {

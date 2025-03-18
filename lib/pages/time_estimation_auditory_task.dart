@@ -17,6 +17,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_application_chrono_metrics/commons/audio_recording_manager.dart';
+import 'package:path/path.dart' as path;
 
 class TimeEstimationAuditoryTaskPage extends StatefulWidget {
   const TimeEstimationAuditoryTaskPage({super.key});
@@ -140,9 +141,35 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   }
 
   void _loadAudioAssets() async {
-    await _startAudioPlayer.setAsset('assets/start.mp3');
-    await _movementAudioPlayer.setAsset('assets/longMove_30.wav');
-    await _finishAudioPlayer.setAsset('assets/finish.mp3');
+    try {
+      // 프로젝트 실행 디렉토리 경로 (캐시 디렉토리 대신 프로젝트 루트 폴더 사용)
+      final String projectDir = Directory.current.path;
+
+      // Sounds 폴더 경로
+      final String soundsDir = path.join(projectDir, 'data\\flutter_assets\\assets');
+
+      // Sounds 폴더가 존재하는지 확인
+      final soundsDirectory = Directory(soundsDir);
+      if (!soundsDirectory.existsSync()) {
+        soundsDirectory.createSync();
+      }
+
+      // 파일 전체 경로
+      final String startSoundPath = path.join(soundsDir, 'start.mp3');
+      final String movementSoundPath = path.join(soundsDir, 'longMove_30.wav');
+      final String finishSoundPath = path.join(soundsDir, 'finish.mp3');
+
+      print('오디오 파일 경로: $startSoundPath');
+
+      // 직접 파일 경로로 오디오 플레이어 설정 (캐시 사용하지 않음)
+      await _startAudioPlayer.setFilePath(startSoundPath);
+      await _movementAudioPlayer.setFilePath(movementSoundPath);
+      await _finishAudioPlayer.setFilePath(finishSoundPath);
+
+      print('오디오 파일 로드 완료');
+    } catch (e) {
+      print('오디오 파일 로드 오류: $e');
+    }
   }
 
   @override
@@ -177,7 +204,6 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
 
     _prepareAudioSession();
 
-    _startAudioPlayer.setAsset('assets/start.mp3');
     _startAudioPlayer.setVolume(1.0);
     _startAudioPlayer.play();
 
@@ -196,11 +222,9 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
   void _playMovementSound() {
     if (!_isPlayingSound) return;
 
-    _movementAudioPlayer.setAsset('assets/longMove_30.wav');
-    _movementAudioPlayer.setVolume(1.0);
-
-    // 움직임 오디오 파일 기록
-    _audioSequence.add('longMove_30.wav');
+    // 볼륨 설정 가져오기
+    final userStateProvider = Provider.of<UserStateProvider>(context, listen: false);
+    _movementAudioPlayer.setVolume(userStateProvider.movementVolume);
 
     // 현재 재생 시작 시간 기록
     final startTime = DateTime.now();
@@ -219,7 +243,13 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
       }
     });
 
-    _movementAudioPlayer.play();
+    // 오디오 재생
+    _movementAudioPlayer.seek(Duration.zero).then((_) {
+      _movementAudioPlayer.play();
+    });
+
+    // 오디오 파일 기록
+    _audioSequence.add('longMove_30.wav');
 
     // 플레이어 상태 감시
     StreamSubscription<Duration>? positionSubscription;
@@ -246,7 +276,6 @@ class _TimeEstimationAuditoryTaskPageState extends State<TimeEstimationAuditoryT
     _displayTimer?.cancel();
     _displayTimer = null;
 
-    _finishAudioPlayer.setAsset('assets/finish.mp3');
     _finishAudioPlayer.setVolume(1.0);
     _finishAudioPlayer.play();
 
